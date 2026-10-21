@@ -36,6 +36,7 @@ def test_media_validation_rejects_bogus_movie(tmp_path):
                       files={"file":("fake.mp4",io.BytesIO(b"this isn't a movie"),"video/mp4")})
         assert r.status_code == 422
         assert client.get(f"/api/projects/{pid}").json()["clips"] == []
+        assert client.get(f"/api/projects/{pid}/clips/unknown/media").status_code == 404
 
 def test_save_and_update_organic_performance(tmp_path):
     with TestClient(create_app(tmp_path)) as client:

@@ -228,6 +228,18 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
         (root / pid / "clips" / row["stored_name"]).unlink(missing_ok=True)
         return fetch_project(pid)
 
+    @app.get("/api/projects/{pid}/clips/{cid}/media")
+    def preview_uploaded_clip(pid: str, cid: str):
+        fetch_project(pid)
+        with db() as cx:
+            row = cx.execute("SELECT stored_name FROM clips WHERE id=? AND project_id=?", (cid, pid)).fetchone()
+            if row is None:
+                raise HTTPException(404, "Clip not found")
+        target = root / pid / "clips" / row["stored_name"]
+        if not target.is_file():
+            raise HTTPException(404, "Source file missing")
+        return FileResponse(target, media_type="video/mp4")
+
     def render_job(pid: str, styles: list[str], resolution: str, voice_engine: str):
         try:
             update_status(pid, "running", "Starting the render queue")
