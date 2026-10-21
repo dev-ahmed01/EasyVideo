@@ -12,6 +12,7 @@ def test_pasted_script_remains_in_feature_narration():
     brief = Brief(intent="Attract workstation buyers", script="This is the exact script I approved.")
     idea = next(x for x in creatives(brief) if x["id"] == "features")
     assert idea["voiceover"] == "This is the exact script I approved."
+    assert all("exact script I approved" in x["voiceover"] for x in creatives(brief))
 
 def test_bulk_intent_demands_inventory_footage():
     brief = Brief(intent="Reach startups buying bulk office chairs and set up their workplace")

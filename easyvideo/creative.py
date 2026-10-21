@@ -87,10 +87,19 @@ def creatives(brief: Brief) -> list[dict]:
     result = []
     for key, beats, voice in data:
         info = STYLES[key]
-        # The supplied script becomes the narration in the feature-led style;
-        # all other styles create distinct, truthful variations.
-        if script and key == "features":
-            voice = script
+        # One user-supplied script informs every treatment. Each format retains
+        # its own hook and shot order instead of ignoring the approved script.
+        if script:
+            if key == "features":
+                voice = script
+            else:
+                opening = {
+                    "stomp": "Look closer.",
+                    "cinematic": "A closer look at the details.",
+                    "business": "Planning your workplace?",
+                    "social": "Here's a quick look.",
+                }[key]
+                voice = _trim_words(f"{opening} {_trim_words(brief.script, 32)} {cta}.")
         result.append({
             "id": key, "title": info["title"], "subtitle": info["subtitle"],
             "beats": [clean(beat, 62) for beat in beats],

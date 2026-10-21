@@ -85,7 +85,7 @@ CI also uses real FFmpeg video and synthetic voice generation to smoke-test CPU 
 - web/: lightweight local client
 - tests/: unit, API and encoder integration checks
 
-Local projects are stored in easyvideo-data/ (ignored by Git). Override the directory with EASYVIDEO_DATA_DIR. The UI requests Google Fonts when online and falls back to system fonts offline.
+Local projects are stored in easyvideo-data/ (ignored by Git). Override the directory with EASYVIDEO_DATA_DIR. The UI uses installed system fonts only. It makes no Google Fonts requests.
 
 ## Organic performance tracking
 
@@ -94,3 +94,7 @@ After publishing, enter Reel views, reach, average watch time, shares, saves and
 ## Export refinements
 
 Style-specific animated text, percussive punctuation, and restrained accent marks are rendered by FFmpeg without a GPU. Selected Reels are saved in the local project database so work survives a restart. For each creative, the editor provides an organic post caption to copy. Preview approval is required before final-resolution export.
+
+## Using a ChatGPT draft script
+
+Paste your script in the brief. The script is included across all five narrated treatments, while the openings, editing rhythm and shot sequence are independently chosen. Long scripts are shortened to suit the initial short-form templates; always review the exact narration text in each creative card before export.
