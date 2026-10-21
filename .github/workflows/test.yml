@@ -20,5 +20,7 @@ jobs:
           pip install -r requirements-dev.txt
       - name: Syntax check
         run: python -m compileall -q easyvideo
+      - name: Browser JavaScript syntax check
+        run: node --check web/app.js
       - name: Unit, API and real-render tests
         run: python -m pytest -q
