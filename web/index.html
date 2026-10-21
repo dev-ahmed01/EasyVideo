@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#142721">
+  <title>EasyVideo — Reel Studio</title>
+  <link rel="stylesheet" href="/assets/style.css">
+  <script defer src="/assets/app.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a href="/" class="brand"><span class="brand-icon">E<span class="dot">.</span></span><span>easyvideo<small>CREATIVE WORKSPACE</small></span></a>
+      <div class="side-caption">YOUR WORKSPACE</div>
+      <div class="nav-steps">
+        <button class="nav-step active" data-stage="1"><span>01</span><strong>Creative intent</strong><i>→</i></button>
+        <button class="nav-step" data-stage="2"><span>02</span><strong>Footage check</strong><i>→</i></button>
+        <button class="nav-step" data-stage="3"><span>03</span><strong>Reel studio</strong><i>→</i></button>
+      </div>
+      <div class="aside-bottom">
+        <span class="light"></span> Your clips never leave this computer.
+        <p>Local rendering · Zero paid APIs</p>
+        <div class="engine-state" id="engine-state">Checking engines…</div>
+      </div>
+    </aside>
+    <main class="content">
+      <header class="topbar">
+        <span class="eyebrow">STUDIO / <span id="breadcrumb">BRIEF</span></span>
+        <div class="top-actions"><span id="project-state">NEW PROJECT</span><button class="top-button" id="new-project">+ New brief</button></div>
+      </header>
+      <section class="main-body" id="view"><div class="loading">Opening your creative studio…</div></section>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </main>
+  </div>
+</body>
+</html>
