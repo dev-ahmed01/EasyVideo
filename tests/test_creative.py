@@ -44,3 +44,8 @@ def test_campaign_hooks_depend_on_audience():
     home=creatives(Brief(intent="Ergonomic chair for WFH home office"))
     assert next(x for x in business if x["id"]=="social")["beats"][0]=="SETTING UP AN OFFICE?"
     assert next(x for x in home if x["id"]=="social")["beats"][0]=="HOME OFFICE UPGRADE?"
+
+def test_explicit_feature_demonstration_requires_feature_clip():
+    brief=Brief(intent="Demonstrate adjustments of a chair for buyers")
+    required={x["role"] for x in required_shots(brief) if x["required"]}
+    assert required=={"hero","detail","function"}

@@ -39,6 +39,13 @@ def required_shots(brief: Brief) -> list[dict]:
     required = {"hero", "detail"}
     if any(word in subject for word in ("bulk", "corporate", "office setup", "b2b", "startup", "furnish")):
         required.add("inventory")
+    stated_goal = clean(brief.intent, 1400).lower()
+    if any(word in stated_goal for word in ("demonstrate adjustment", "adjustments", "show the mechanism", "lever operation", "feature demo")):
+        required.add("function")
+    if any(word in stated_goal for word in ("show the desk", "show the workspace", "lifestyle setup", "desk setup")):
+        required.add("workspace")
+    if any(word in stated_goal for word in ("showroom tour", "show the showroom", "installation proof")):
+        required.add("proof")
     return [
         {"role": name, "label": label, "instruction": instruction, "required": name in required}
         for name, (label, instruction) in ROLES.items()

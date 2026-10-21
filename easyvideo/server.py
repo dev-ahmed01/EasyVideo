@@ -39,7 +39,7 @@ class RenderInput(BaseModel):
     voice_engine: str = "auto"
 
 class SelectionInput(BaseModel):
-    styles: list[str] = Field(min_length=1, max_length=3)
+    styles: list[str] = Field(default_factory=list, max_length=3)
 
 class ClipRoleInput(BaseModel):
     role: str

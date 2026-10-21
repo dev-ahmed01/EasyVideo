@@ -25,6 +25,7 @@ def test_intent_first_project_and_missing_shot(tmp_path):
         assert "Missing required shots" in blocked.json()["detail"]
         assert client.get("/api/projects").json()[0]["id"] == pid
         assert client.post(f"/api/projects/{pid}/selection",json={"styles":["stomp","features"]}).status_code == 200
+        assert client.post(f"/api/projects/{pid}/selection",json={"styles":[]}).json()["selected"] == []
         assert client.post(f"/api/projects/{pid}/selection",json={"styles":["wrong"]}).status_code == 422
         assert client.get(f"/api/projects/{pid}/exports/stomp/preview").status_code == 404
 
