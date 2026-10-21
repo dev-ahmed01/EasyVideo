@@ -89,6 +89,11 @@ def creatives(brief: Brief) -> list[dict]:
             "beats": [clean(beat, 62) for beat in beats],
             "voiceover": _trim_words(voice), "roles": info["roles"],
             "estimated_seconds": round(sum(info["seconds"])),
+            "cover_title": clean(beats[0], 65),
+            "caption": clean(
+                f"{product}: {factline} {offerline} {cta}. #OfficeFurniture #OfficeChairs #Workspace",
+                420
+            ),
             "marketing_goal": {
                 "stomp": "Pattern interrupt / initial attention",
                 "cinematic": "Premium perception",

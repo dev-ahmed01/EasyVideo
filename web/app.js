@@ -57,8 +57,10 @@
   }
   function reelCard(x,i){
     const url=current.exports[x.id].final||current.exports[x.id].preview;
+    const missing=[...new Set(x.roles)].filter(role=>!current.clips.some(c=>c.role===role));
+    const warning=missing.length?'<span class="coverage-note">Using substitute shots: '+missing.map(r=>html(roles[r]||r)).join(", ")+'</span>':'';
     const poster=url?'<video controls preload="metadata" src="'+html(url)+'"></video>':'<span class="poster-letter">'+html(x.beats[0])+'</span>';
-    return '<article class="reel-card '+(selected.has(x.id)?"selected":"")+'"><div class="reel-poster">'+poster+'<span class="reel-number">0'+(i+1)+'</span></div><h4>'+html(x.title)+'</h4><p>'+html(x.subtitle)+'</p><label class="reel-pick"><input type="checkbox" class="pick" data-style="'+x.id+'" '+(selected.has(x.id)?"checked":"")+'> Select Reel</label><details><summary>View narration</summary><blockquote>'+html(x.voiceover)+'</blockquote><small>'+html(x.marketing_goal)+'</small></details>'+(url?'<a class="download" href="'+html(url)+'" download>↓ Download '+(current.exports[x.id].final?"1080p":"preview")+'</a>':'')+'</article>';
+    return '<article class="reel-card '+(selected.has(x.id)?"selected":"")+'"><div class="reel-poster">'+poster+'<span class="reel-number">0'+(i+1)+'</span></div><h4>'+html(x.title)+'</h4><p>'+html(x.subtitle)+'</p>'+warning+'<label class="reel-pick"><input type="checkbox" class="pick" data-style="'+x.id+'" '+(selected.has(x.id)?"checked":"")+'> Select Reel</label><details><summary>View narration</summary><blockquote>'+html(x.voiceover)+'</blockquote><small>'+html(x.marketing_goal)+'</small></details><button class="caption-copy" data-style="'+x.id+'">Copy post caption</button>'+(url?'<a class="download" href="'+html(url)+'" download>↓ Download '+(current.exports[x.id].final?"1080p":"preview")+'</a>':'')+'</article>';
   }
   function performanceSummary(){
     const entries=Object.entries(current.performance||{});
@@ -79,11 +81,12 @@
     const busy=["queued","running"].includes(current.job.status);
     const previews=styles.every(x=>current.exports[x].preview);
     const chosen=Array.from(selected);
+    const chosenPreviewsReady=chosen.length>0&&chosen.every(id=>!!current.exports[id].preview);
     $("#view").innerHTML='<div class="overline">03 / Five creative directions</div><h1 class="page-title">Five ways to tell one story.</h1><p class="subtitle">Each format has a different opening, pacing, text treatment and offline voiceover. Generate drafts, watch them with sound, then choose up to three for full-quality export.</p>'+
     '<div class="panel"><div style="display:flex;gap:15px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div><h3>Reel collection</h3><p style="margin:4px 0">9:16 vertical · original chair footage · locally synthesized narration</p></div><span class="capsule">'+html(current.clips.length)+' SOURCE CLIPS</span></div>'+
     (busy?'<div class="progress"><strong>Rendering in progress</strong>'+html(current.job.message)+'<br><small>The render queue runs sequentially to conserve memory. You can leave this tab open.</small></div>':current.job.status==="error"?'<div class="flag">Render error: '+html(current.job.message)+'</div>':"")+
     '<div class="reel-grid">'+current.creatives.map(reelCard).join("")+'</div>'+
-    '<div class="button-row"><button class="btn" id="make-drafts" '+(busy?"disabled":"")+'>✦ '+(previews?"Regenerate five drafts":"Generate five previews")+'</button><button class="btn secondary" id="export-finals" '+(busy||chosen.length===0?"disabled":"")+'>Export selected in 1080p ('+chosen.length+'/3)</button></div>'+
+    '<div class="button-row"><button class="btn" id="make-drafts" '+(busy?"disabled":"")+'>✦ '+(previews?"Regenerate five drafts":"Generate five previews")+'</button><button class="btn secondary" id="export-finals" '+(busy||!chosenPreviewsReady?"disabled":"")+'>Export selected in 1080p ('+chosen.length+'/3)</button></div>'+
     '<div class="footnote">These previews may take several minutes on a CPU-only computer. Voiceover is mandatory; if an offline speech engine is unavailable, the app will flag it rather than export a silent Reel.</div></div>'+
     '<div class="panel performance-panel"><h3>Organic results tracker</h3><p>After posting, record actual Instagram insights. Prioritize real enquiries over vanity metrics; no Instagram account connection is needed.</p>'+
     '<div class="columns"><div><label class="label" for="metric-style">Reel format</label><select class="field" id="metric-style">'+current.creatives.map(x=>'<option value="'+x.id+'">'+html(x.title)+'</option>').join("")+'</select></div><div><label class="label" for="metric-url">Post link (optional)</label><input id="metric-url" class="field" placeholder="https://www.instagram.com/reel/..."></div></div>'+
@@ -91,7 +94,18 @@
     '<div class="button-row"><button class="btn secondary" id="save-metrics">Save results locally</button></div>'+
     '<div id="performance-summary">'+performanceSummary()+'</div></div>'+
     '<div class="tip">Organic growth loop: compare hook retention, average watch time, shares, saves and genuine enquiries after posting. Five different ideas give you a useful test—not a guarantee of reach.</div>';
-    document.querySelectorAll(".pick").forEach(x=>x.onchange=()=>{if(x.checked){if(selected.size>=3){x.checked=false;toast("Choose up to three Reels.");return;}selected.add(x.dataset.style)}else selected.delete(x.dataset.style);render();});
+    document.querySelectorAll(".pick").forEach(x=>x.onchange=async()=>{
+      if(x.checked){if(selected.size>=3){x.checked=false;toast("Choose up to three Reels.");return;}selected.add(x.dataset.style)}
+      else selected.delete(x.dataset.style);
+      try{const saved=await api("/api/projects/"+current.id+"/selection","POST",{styles:[...selected]});current=saved;render();}
+      catch(e){toast(e.message)}
+    });
+    document.querySelectorAll(".caption-copy").forEach(button=>button.onclick=async()=>{
+      const idea=current.creatives.find(c=>c.id===button.dataset.style);
+      if(!idea)return;
+      try{await navigator.clipboard.writeText(idea.caption);toast("Suggested caption copied. Verify details before posting.");}
+      catch(e){toast("Clipboard unavailable. Open the narration panel and copy manually.")}
+    });
     $("#make-drafts").onclick=()=>startRender(styles,"preview");
     $("#export-finals").onclick=()=>startRender(chosen,"final");
     $("#metric-style").onchange=()=>fillMetrics($("#metric-style").value);

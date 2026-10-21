@@ -90,3 +90,7 @@ Local projects are stored in easyvideo-data/ (ignored by Git). Override the dire
 ## Organic performance tracking
 
 After publishing, enter Reel views, reach, average watch time, shares, saves and real enquiries in the Reel Studio. Results are retained locally by project and format. The interface displays shares per 1,000 reached and enquiry counts, without claiming to predict virality. Posting and retrieving Instagram insights remain manual.
+
+## Export refinements
+
+Style-specific animated text, percussive punctuation, and restrained accent marks are rendered by FFmpeg without a GPU. Selected Reels are saved in the local project database so work survives a restart. For each creative, the editor provides an organic post caption to copy. Preview approval is required before final-resolution export.

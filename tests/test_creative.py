@@ -33,3 +33,14 @@ def test_file_warning_detects_landscape_and_low_resolution():
     assert output["ready"]
     assert any("low resolution" in w for w in output["warnings"])
     assert any("center-cropped" in w for w in output["warnings"])
+
+def test_caption_and_cover_available_for_each_reel():
+    results=creatives(Brief(intent="Promote a chair to buyers",product="Office chair"))
+    assert all(len(row["caption"])>20 and row["cover_title"] for row in results)
+    assert len({row["marketing_goal"] for row in results})==5
+
+def test_campaign_hooks_depend_on_audience():
+    business=creatives(Brief(intent="Office chairs for bulk startup office furnishing"))
+    home=creatives(Brief(intent="Ergonomic chair for WFH home office"))
+    assert next(x for x in business if x["id"]=="social")["beats"][0]=="SETTING UP AN OFFICE?"
+    assert next(x for x in home if x["id"]=="social")["beats"][0]=="HOME OFFICE UPGRADE?"
