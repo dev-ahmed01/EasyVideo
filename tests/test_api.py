@@ -35,3 +35,15 @@ def test_media_validation_rejects_bogus_movie(tmp_path):
                       files={"file":("fake.mp4",io.BytesIO(b"this isn't a movie"),"video/mp4")})
         assert r.status_code == 422
         assert client.get(f"/api/projects/{pid}").json()["clips"] == []
+
+def test_save_and_update_organic_performance(tmp_path):
+    with TestClient(create_app(tmp_path)) as client:
+        pid=client.post("/api/projects",json=BRIEF).json()["id"]
+        url=f"/api/projects/{pid}/performance/stomp"
+        metrics={"views":500,"reach":400,"avg_watch_seconds":8.6,"shares":16,"saves":9,"enquiries":3}
+        response=client.put(url,json=metrics)
+        assert response.status_code == 200
+        assert response.json()["performance"]["stomp"]["enquiries"] == 3
+        assert client.put(url,json={**metrics, "enquiries":7}).json()["performance"]["stomp"]["enquiries"] == 7
+        assert client.put(url,json={"views":-1}).status_code == 422
+        assert client.put(f"/api/projects/{pid}/performance/invalid",json=metrics).status_code == 404

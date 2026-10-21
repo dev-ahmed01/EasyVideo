@@ -47,6 +47,7 @@
     '<div class="label">Footage audit</div><span class="capsule '+(!audit.ready?"warn":"")+'">'+audit.matched_required+' / '+audit.required_total+' REQUIRED SHOTS READY</span>'+
     audit.missing.map(x=>'<div class="flag">Missing: '+html(x.label)+'</div>').join("")+
     audit.warnings.map(x=>'<div class="flag info">'+html(x)+'</div>').join("")+
+    (audit.suggested.length?'<div class="label">Optional coverage opportunities</div>'+audit.suggested.map(x=>'<div class="flag info">Consider filming: '+html(x.label)+'</div>').join(""):"")+
     '<div class="button-row"><button id="go-reels" class="btn full" '+(!audit.ready?"disabled":"")+'>Continue to Reel studio →</button></div></div></div>'+
     '<div class="footnote">The app checks media metadata, not visual truth. Role labels should describe the actual footage. Missing optional clips are replaced by existing relevant shots and should be reviewed.</div>';
     $("#file-upload").onchange=async(e)=>{const files=Array.from(e.target.files);const role=$("#upload-role").value;for(const file of files){const f=new FormData();f.append("file",file);f.append("role",role);try{toast("Inspecting "+file.name);current=await api("/api/projects/"+current.id+"/clips","POST",f,true)}catch(err){toast(file.name+": "+err.message)}}render();};
@@ -59,6 +60,21 @@
     const poster=url?'<video controls preload="metadata" src="'+html(url)+'"></video>':'<span class="poster-letter">'+html(x.beats[0])+'</span>';
     return '<article class="reel-card '+(selected.has(x.id)?"selected":"")+'"><div class="reel-poster">'+poster+'<span class="reel-number">0'+(i+1)+'</span></div><h4>'+html(x.title)+'</h4><p>'+html(x.subtitle)+'</p><label class="reel-pick"><input type="checkbox" class="pick" data-style="'+x.id+'" '+(selected.has(x.id)?"checked":"")+'> Select Reel</label><details><summary>View narration</summary><blockquote>'+html(x.voiceover)+'</blockquote><small>'+html(x.marketing_goal)+'</small></details>'+(url?'<a class="download" href="'+html(url)+'" download>↓ Download '+(current.exports[x.id].final?"1080p":"preview")+'</a>':'')+'</article>';
   }
+  function performanceSummary(){
+    const entries=Object.entries(current.performance||{});
+    if(!entries.length)return '<p class="footnote">No Reel results entered yet. Post your exports, then add their Insights here.</p>';
+    return '<div class="metric-summary">'+entries.map(([id,p])=>{
+      const name=current.creatives.find(x=>x.id===id)?.title||id;
+      const shareRate=p.reach?((p.shares/p.reach)*1000).toFixed(1):"—";
+      return '<div class="metric-row"><strong>'+html(name)+'</strong><span>'+p.enquiries+' enquiries</span><span>'+shareRate+' shares / 1k reached</span><span>'+p.avg_watch_seconds+'s avg watch</span></div>';
+    }).join("")+'</div>';
+  }
+  function fillMetrics(style){
+    const item=(current.performance||{})[style]||{};
+    for(const key of ["views","reach","avg_watch_seconds","shares","saves","enquiries"])
+      $("#metric-"+key).value=item[key]??0;
+    $("#metric-url").value=item.post_url||"";
+  }
   function showStudio(){
     const busy=["queued","running"].includes(current.job.status);
     const previews=styles.every(x=>current.exports[x].preview);
@@ -69,10 +85,23 @@
     '<div class="reel-grid">'+current.creatives.map(reelCard).join("")+'</div>'+
     '<div class="button-row"><button class="btn" id="make-drafts" '+(busy?"disabled":"")+'>✦ '+(previews?"Regenerate five drafts":"Generate five previews")+'</button><button class="btn secondary" id="export-finals" '+(busy||chosen.length===0?"disabled":"")+'>Export selected in 1080p ('+chosen.length+'/3)</button></div>'+
     '<div class="footnote">These previews may take several minutes on a CPU-only computer. Voiceover is mandatory; if an offline speech engine is unavailable, the app will flag it rather than export a silent Reel.</div></div>'+
+    '<div class="panel performance-panel"><h3>Organic results tracker</h3><p>After posting, record actual Instagram insights. Prioritize real enquiries over vanity metrics; no Instagram account connection is needed.</p>'+
+    '<div class="columns"><div><label class="label" for="metric-style">Reel format</label><select class="field" id="metric-style">'+current.creatives.map(x=>'<option value="'+x.id+'">'+html(x.title)+'</option>').join("")+'</select></div><div><label class="label" for="metric-url">Post link (optional)</label><input id="metric-url" class="field" placeholder="https://www.instagram.com/reel/..."></div></div>'+
+    '<div class="metric-grid">'+[["views","Views / plays"],["reach","Accounts reached"],["avg_watch_seconds","Average watch (seconds)"],["shares","Shares / sends"],["saves","Saves"],["enquiries","Real enquiries"]].map(([id,label])=>'<div><label class="label" for="metric-'+id+'">'+label+'</label><input id="metric-'+id+'" class="field" type="number" step="'+(id==="avg_watch_seconds"?"0.1":"1")+'" min="0" value="0"></div>').join("")+'</div>'+
+    '<div class="button-row"><button class="btn secondary" id="save-metrics">Save results locally</button></div>'+
+    '<div id="performance-summary">'+performanceSummary()+'</div></div>'+
     '<div class="tip">Organic growth loop: compare hook retention, average watch time, shares, saves and genuine enquiries after posting. Five different ideas give you a useful test—not a guarantee of reach.</div>';
     document.querySelectorAll(".pick").forEach(x=>x.onchange=()=>{if(x.checked){if(selected.size>=3){x.checked=false;toast("Choose up to three Reels.");return;}selected.add(x.dataset.style)}else selected.delete(x.dataset.style);render();});
     $("#make-drafts").onclick=()=>startRender(styles,"preview");
     $("#export-finals").onclick=()=>startRender(chosen,"final");
+    $("#metric-style").onchange=()=>fillMetrics($("#metric-style").value);
+    fillMetrics($("#metric-style").value);
+    $("#save-metrics").onclick=async()=>{
+      const style=$("#metric-style").value, data={post_url:$("#metric-url").value};
+      for(const key of ["views","reach","avg_watch_seconds","shares","saves","enquiries"]) data[key]=Number($("#metric-"+key).value||0);
+      try{current=await api("/api/projects/"+current.id+"/performance/"+style,"PUT",data);render();$("#metric-style").value=style;fillMetrics(style);toast("Organic performance saved locally.");}
+      catch(e){toast(e.message);}
+    };
     if(busy)beginPoll();else stopPoll();
   }
   async function startRender(which,resolution){

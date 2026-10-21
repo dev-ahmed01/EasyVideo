@@ -86,3 +86,7 @@ CI also uses real FFmpeg video and synthetic voice generation to smoke-test CPU 
 - tests/: unit, API and encoder integration checks
 
 Local projects are stored in easyvideo-data/ (ignored by Git). Override the directory with EASYVIDEO_DATA_DIR. The UI requests Google Fonts when online and falls back to system fonts offline.
+
+## Organic performance tracking
+
+After publishing, enter Reel views, reach, average watch time, shares, saves and real enquiries in the Reel Studio. Results are retained locally by project and format. The interface displays shares per 1,000 reached and enquiry counts, without claiming to predict virality. Posting and retrieving Instagram insights remain manual.

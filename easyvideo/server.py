@@ -44,6 +44,15 @@ class SelectionInput(BaseModel):
 class ClipRoleInput(BaseModel):
     role: str
 
+class PerformanceInput(BaseModel):
+    post_url: str = Field(default="", max_length=500)
+    views: int = Field(default=0, ge=0)
+    reach: int = Field(default=0, ge=0)
+    avg_watch_seconds: float = Field(default=0, ge=0, le=3600)
+    shares: int = Field(default=0, ge=0)
+    saves: int = Field(default=0, ge=0)
+    enquiries: int = Field(default=0, ge=0)
+
 def create_app(data_dir: str | Path | None = None) -> FastAPI:
     root = Path(data_dir or os.getenv("EASYVIDEO_DATA_DIR", HERE / "easyvideo-data")).resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -71,6 +80,14 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             stored_name TEXT NOT NULL, role TEXT NOT NULL, width INTEGER NOT NULL,
             height INTEGER NOT NULL, duration REAL NOT NULL,
             FOREIGN KEY(project_id) REFERENCES projects(id));
+        CREATE TABLE IF NOT EXISTS performance (
+            project_id TEXT NOT NULL, style TEXT NOT NULL,
+            post_url TEXT NOT NULL DEFAULT '', views INTEGER NOT NULL DEFAULT 0,
+            reach INTEGER NOT NULL DEFAULT 0, avg_watch_seconds REAL NOT NULL DEFAULT 0,
+            shares INTEGER NOT NULL DEFAULT 0, saves INTEGER NOT NULL DEFAULT 0,
+            enquiries INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
+            PRIMARY KEY(project_id,style),
+            FOREIGN KEY(project_id) REFERENCES projects(id));
         UPDATE projects SET job_status='error',job_message='Interrupted by application restart'
             WHERE job_status IN ('queued','running');
         """)
@@ -85,6 +102,11 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
                 raise HTTPException(404, "Project not found")
             clips = [dict(x) for x in cx.execute(
                 "SELECT * FROM clips WHERE project_id=? ORDER BY rowid", (pid,)).fetchall()]
+        with db() as cx:
+            metrics = {
+                row["style"]: {key: row[key] for key in row.keys() if key not in ("style", "project_id")}
+                for row in cx.execute("SELECT * FROM performance WHERE project_id=?", (pid,))
+            }
         brief_data = json.loads(p["brief"])
         brief = Brief(**brief_data)
         exports = {}
@@ -99,7 +121,7 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             "shotlist": required_shots(brief), "creatives": creatives(brief),
             "clips": clips, "audit": audit(brief, clips),
             "job": {"status": p["job_status"], "message": p["job_message"]},
-            "selected": json.loads(p["selected"]), "exports": exports
+            "selected": json.loads(p["selected"]), "exports": exports, "performance": metrics
         }
 
     def update_status(pid: str, status: str, message: str):
@@ -256,6 +278,27 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
         with db() as cx:
             cx.execute("UPDATE projects SET selected=? WHERE id=?",
                        (json.dumps(payload.styles), pid))
+        return fetch_project(pid)
+
+    @app.put("/api/projects/{pid}/performance/{style}")
+    def save_performance(pid: str, style: str, payload: PerformanceInput):
+        fetch_project(pid)
+        if style not in STYLES:
+            raise HTTPException(404, "Unknown creative format")
+        data = payload.model_dump()
+        with db() as cx:
+            cx.execute("""INSERT INTO performance(
+                project_id, style, post_url, views, reach, avg_watch_seconds,
+                shares, saves, enquiries, updated_at
+            ) VALUES (?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(project_id,style) DO UPDATE SET
+                post_url=excluded.post_url, views=excluded.views,
+                reach=excluded.reach, avg_watch_seconds=excluded.avg_watch_seconds,
+                shares=excluded.shares, saves=excluded.saves,
+                enquiries=excluded.enquiries, updated_at=excluded.updated_at""",
+                (pid, style, data["post_url"], data["views"], data["reach"],
+                 data["avg_watch_seconds"], data["shares"], data["saves"],
+                 data["enquiries"], datetime.now(timezone.utc).isoformat()))
         return fetch_project(pid)
 
     @app.get("/api/projects/{pid}/exports/{style}/{resolution}")

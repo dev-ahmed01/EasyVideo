@@ -35,7 +35,7 @@ def clean(value: str, limit: int = 240) -> str:
     return value[:limit]
 
 def required_shots(brief: Brief) -> list[dict]:
-    subject = clean(brief.intent + " " + brief.audience).lower()
+    subject = clean(brief.intent + " " + brief.audience, 1600).lower()
     required = {"hero", "detail"}
     if any(word in subject for word in ("bulk", "corporate", "office setup", "b2b", "startup", "furnish")):
         required.add("inventory")
@@ -57,16 +57,24 @@ def creatives(brief: Brief) -> list[dict]:
     factline = facts or "A closer look at the finish, form and everyday usability."
     offerline = offer or "Explore the available options."
     script = _trim_words(brief.script)
+    intent = clean(brief.intent + " " + brief.audience, 1600).lower()
+    bulk = any(word in intent for word in ("bulk", "startup", "corporate", "office setup", "b2b", "furnish"))
+    home = any(word in intent for word in ("work from home", "home office", "remote work", "wfh"))
+    budget = any(word in intent for word in ("budget", "affordable", "value", "cost-effective"))
+    premium = any(word in intent for word in ("premium", "luxury", "cinematic", "high-end"))
+    opener = "SETTING UP AN OFFICE?" if bulk else "HOME OFFICE UPGRADE?" if home else "BUYING A WORK CHAIR?"
+    cinematic_hook = "THE DETAILS MATTER" if premium else "MEET YOUR NEXT CHAIR"
+    shopper_hook = "SMARTER CHAIR SHOPPING" if budget else "BEFORE YOU BUY"
     data = [
         ("stomp", ["STOP SCROLLING", product.upper(), offerline.upper(), "ENQUIRE TODAY"],
          f"Looking for {product}? Take a closer look. {factline} {offerline} {cta}."),
-        ("cinematic", ["DETAILS MATTER", product, "A BETTER WORKSPACE", "DISCOVER MORE"],
+        ("cinematic", [cinematic_hook, product, "A BETTER WORKSPACE", "DISCOVER MORE"],
          f"A workspace starts with the details. Introducing {product}. {factline} {cta}."),
-        ("features", ["BEFORE YOU BUY", "LOOK CLOSELY", "CHECK THE DETAILS", "ASK US"],
+        ("features", [shopper_hook, "LOOK CLOSELY", "CHECK THE DETAILS", "ASK US"],
          f"Choosing an office chair? Look closely at the build, material and condition. {factline} {cta}."),
         ("business", ["FURNISHING AN OFFICE?", "SEE WHAT IS AVAILABLE", "REAL WORKSPACES", "GET IN TOUCH"],
          f"Planning seating for a workspace? Explore {product} options for your office. {offerline} {cta}."),
-        ("social", ["NEED A NEW CHAIR?", "HERE IS A CLOSER LOOK", "YOUR WORKSPACE, SORTED", "MESSAGE US"],
+        ("social", [opener, "HERE IS A CLOSER LOOK", "YOUR WORKSPACE, SORTED", "MESSAGE US"],
          f"Quick question. Is your current office chair working for your setup? Here's {product}. {factline} {cta}."),
     ]
     result = []
