@@ -128,3 +128,11 @@ Voice dataset: LibriTTS (OpenSLR 60), CC BY 4.0. Attribution should accompany co
 ### Speech compatibility and Reel Lab safeguard
 
 The optional Piper installer and selected LibriTTS voice now use the current `python -m piper` CLI for synthesis. The configured speaker index is respected, and a legacy binary remains supported. Scene boundaries are cached per original clip during each render to reduce repeated CPU analysis, and the three soundtrack buttons are bound correctly in the browser. Unit/contract tests cover these paths.
+
+## Optional VoiceStudio voice engine (2026)
+
+EasyVideo can connect to the independent [VoiceStudio](https://github.com/debpalash/VoiceStudio) **running on your own PC**, using its OpenAI-compatible `/v1/audio/speech` REST endpoint at `http://127.0.0.1:3900`. Set `EASYVIDEO_VOICESTUDIO_MODEL=tts-1` (or a local installed engine such as KittenTTS) and `EASYVIDEO_VOICESTUDIO_VOICE=alloy` (or a voice profile). The studio lets you select **VoiceStudio local** for a narrated Reel when available. The connector only permits loopback HTTP with no redirects or proxy use. No account, GPU or paid API is required *by EasyVideo*, but you must separately install VoiceStudio and any chosen model, which may consume substantial RAM. For an 8 GB PC choose a lightweight CPU-compatible model such as KittenTTS, not a 1B+ parameter voice-cloning model. No VoiceStudio source has been copied; its AGPL license and each voice model's separate conditions still apply.
+
+## Instagram discovery pack
+
+For each generated style EasyVideo prepares a searchable headline, natural-language caption, simple hashtags, accessibility alt text, a pinned comment and a manual publishing checklist. Optional city/area comes **only from your campaign brief**, avoiding fabricated location targeting. Discovery depends on relevance and real audience response, not keyword stuffing. No automated posting or reach promises.
