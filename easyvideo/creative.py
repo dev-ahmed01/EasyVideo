@@ -77,7 +77,7 @@ def creatives(brief: Brief) -> list[dict]:
     cinematic_hook = "THE DETAILS MATTER" if premium else "MEET YOUR NEXT CHAIR"
     shopper_hook = "SMARTER CHAIR SHOPPING" if budget else "BEFORE YOU BUY"
     data = [
-        ("stomp", [opener, "DETAILS UP CLOSE", "REAL OFFICE FOOTAGE", "DM FOR DETAILS"],
+        ("stomp", ["OFFICE SEATING IN MOTION", "DETAILS UP CLOSE", "REAL OFFICE FOOTAGE", "DM FOR DETAILS"],
          f"Looking for {product}? Take a closer look. {factline} {offerline} {cta}."),
         ("cinematic", [cinematic_hook, "BACK. SEAT. FINISH.", "SEEN IN A WORKSPACE", "ASK FOR DETAILS"],
          f"A workspace starts with the details. Introducing {product}. {factline} {cta}."),
@@ -87,7 +87,7 @@ def creatives(brief: Brief) -> list[dict]:
          f"Planning seating for a workspace? Explore {product} options for your office. {offerline} {cta}."),
         ("social", [opener, "HERE IS A CLOSER LOOK", "YOUR WORKSPACE, SORTED", "MESSAGE US"],
          f"Quick question. Is your current office chair working for your setup? Here's {product}. {factline} {cta}."),
-        ("voice_story", [opener, "DETAILS UP CLOSE", "SEE IT IN A WORKSPACE", "DM FOR DETAILS"],
+        ("voice_story", ["MEET THIS OFFICE CHAIR", "DETAILS UP CLOSE", "SEE IT IN A WORKSPACE", "DM FOR DETAILS"],
          f"Looking for seating for your workspace? Explore this {product}. See the details up close and check the current options. {cta}."),
     ]
     result = []
