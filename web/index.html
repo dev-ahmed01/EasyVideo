@@ -1,37 +1,33 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#142721">
-  <title>EasyVideo — Reel Studio</title>
-  <link rel="stylesheet" href="/assets/style.css">
-  <script defer src="/assets/app.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7f8f4">
+<title>EasyVideo — Create better Reels</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+<script defer src="/assets/app.js"></script>
 </head>
 <body>
-  <div class="shell">
-    <aside class="sidebar">
-      <a href="/" class="brand"><span class="brand-icon">E<span class="dot">.</span></span><span>easyvideo<small>CREATIVE WORKSPACE</small></span></a>
-      <div class="side-caption">YOUR WORKSPACE</div>
-      <div class="nav-steps">
-        <button class="nav-step active" data-stage="1"><span>01</span><strong>Creative intent</strong><i>→</i></button>
-        <button class="nav-step" data-stage="2"><span>02</span><strong>Footage check</strong><i>→</i></button>
-        <button class="nav-step" data-stage="3"><span>03</span><strong>Reel studio</strong><i>→</i></button>
-      </div>
-      <div class="aside-bottom">
-        <span class="light"></span> Your clips never leave this computer.
-        <p>Local rendering · Zero paid APIs</p>
-        <div class="engine-state" id="engine-state">Checking engines…</div>
-      </div>
-    </aside>
-    <main class="content">
-      <header class="topbar">
-        <span class="eyebrow">STUDIO / <span id="breadcrumb">BRIEF</span></span>
-        <div class="top-actions"><span id="project-state">NEW PROJECT</span><button class="top-button" id="new-project">+ New brief</button></div>
-      </header>
-      <section class="main-body" id="view"><div class="loading">Opening your creative studio…</div></section>
-      <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    </main>
+<div class="app">
+  <aside class="rail">
+    <a class="logo" href="/" aria-label="EasyVideo home"><span class="logo-mark">e<span>.</span></span><span class="logo-word">easyvideo<small>STUDIO</small></span></a>
+    <div class="rail-label">WORKSPACE</div>
+    <nav class="nav" aria-label="Creation steps">
+      <button type="button" class="nav-item active" data-stage="1"><span class="step-num">01</span><span>Direction</span><span class="nav-arrow">↗</span></button>
+      <button type="button" class="nav-item" data-stage="2"><span class="step-num">02</span><span>Footage</span><span class="nav-arrow">↗</span></button>
+      <button type="button" class="nav-item" data-stage="3"><span class="step-num">03</span><span>Reel lab</span><span class="nav-arrow">↗</span></button>
+    </nav>
+    <div class="rail-footer"><span class="online-dot"></span><span id="engine-state">Checking local tools</span><small>Private studio · Your files stay on this PC</small></div>
+  </aside>
+  <div class="body">
+    <header class="top"><span class="top-location">EASYVIDEO <b>/</b> <span id="breadcrumb">DIRECTION</span></span><div class="top-right"><span id="project-state">UNTITLED CAMPAIGN</span><button id="new-project" class="text-button" type="button">+ New project</button></div></header>
+    <main id="view" class="viewport"><div class="loading">Opening your studio…</div></main>
   </div>
+</div>
+<div class="toast" id="toast" aria-live="polite" role="status"></div>
 </body>
 </html>
