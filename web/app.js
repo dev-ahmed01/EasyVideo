@@ -81,6 +81,12 @@ function referencePanel(){
  (ref?'<video class="reference-video" src="'+escape(ref.media_url)+'" preload="metadata" controls playsinline></video>'+
  '<div class="stat-strip"><span class="stat-pill">'+ref.duration.toFixed(1)+'s video</span><span class="stat-pill">'+(ref.has_audio?"Audio detected":"No audio track")+'</span></div>'+
  (ref.has_audio?'<audio class="reference-audio" preload="none" controls src="'+escape(ref.audio_url)+'"></audio>':'<div class="flag">This Reel has no sound. Use a fresh offline voiceover.</div>')+
+ '<div class="mini-divider"></div><h3 class="panel-title">Pick a moment</h3>'+
+ '<div class="field-grid"><div><label class="field-title" for="section-start">Start (seconds)</label><input id="section-start" class="input" type="number" min="0" max="'+Math.max(0,ref.duration-2)+'" value="0" step="0.5"></div>'+
+ '<div><label class="field-title" for="section-duration">Length (seconds)</label><input id="section-duration" class="input" type="number" min="2" max="60" value="5" step="0.5"></div></div>'+
+ '<label class="field-title" for="section-role">Shot type</label><select id="section-role" class="input">'+choices("hero")+'</select>'+
+ '<div class="btn-row"><button class="secondary" type="button" id="import-section">Add selected moment +</button></div>'+
+ '<p class="footnote">Review the old Reel, choose a meaningful time range and label the real footage.</p>'+
  '<p class="footnote">Original audio can include music, effects and narration. Speech is not isolated. Use only audio you have rights to reuse.</p>':"")+
  '</div>';
 }
@@ -100,6 +106,16 @@ function showFootage(){
  '<p class="footnote">We inspect duration and framing; please confirm your shot labels visually.</p></div></div></div>';
  const upload=$("#video-upload");
  upload.onchange=async()=>{const files=[...upload.files],role=$("#upload-role").value;for(const file of files){const form=new FormData();form.append("file",file);form.append("role",role);try{toast("Checking "+file.name);project=await api("/api/projects/"+project.id+"/clips","POST",form);}catch(e){toast(e.message);}}render();};
+ const importButton=$("#import-section");
+ if(importButton)importButton.onclick=async()=>{
+  const payload={role:$("#section-role").value,start:Number($("#section-start").value),duration:Number($("#section-duration").value)};
+  if(payload.start+payload.duration>project.reference.duration+0.03){toast("That range exceeds the Reel duration");return;}
+  importButton.disabled=true;
+  try{project=await api("/api/projects/"+project.id+"/reference/segments","POST",payload);render();toast("Selected moment added to footage");}
+  catch(e){toast(e.message);importButton.disabled=false;}
+ };
+ const startInput=$("#section-start");
+ if(startInput)startInput.onchange=()=>{const vid=$(".reference-video");if(vid)vid.currentTime=Math.max(0,Number(startInput.value)||0);};
  const old=$("#reference-upload");
  if(old)old.onchange=async()=>{if(!old.files.length)return;const form=new FormData();form.append("file",old.files[0]);try{toast("Inspecting original Reel");project=await api("/api/projects/"+project.id+"/reference","POST",form);if(!project.reference.has_audio)audioMode="generated";else{audioMode="reference";audioLength=Math.max(8,Math.min(18,Math.floor(project.reference.audio_seconds)));}render();}catch(e){toast(e.message);}};
  $$(".clip-role").forEach(e=>e.onchange=async()=>{try{project=await api("/api/projects/"+project.id+"/clips/"+e.dataset.id,"PATCH",{role:e.value});render();}catch(err){toast(err.message)}});

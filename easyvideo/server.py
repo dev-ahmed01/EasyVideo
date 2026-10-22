@@ -50,6 +50,11 @@ class SelectionInput(BaseModel):
 class ClipRoleInput(BaseModel):
     role: str
 
+class ReferenceSegmentInput(BaseModel):
+    role: str
+    start: float = Field(ge=0, le=600)
+    duration: float = Field(ge=2, le=60)
+
 class PerformanceInput(BaseModel):
     post_url: str = Field(default="", max_length=500)
     views: int = Field(default=0, ge=0)
@@ -354,6 +359,48 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             if p.returncode:
                 raise HTTPException(422, "Couldn't extract the original audio")
         return FileResponse(audio, media_type="audio/mp4")
+
+    @app.post("/api/projects/{pid}/reference/segments", status_code=201)
+    def import_reference_segment(pid: str, payload: ReferenceSegmentInput):
+        """Pick a time range of the previous Reel as an editable shot.
+        The user labels the visual subject; the application does not invent it.
+        """
+        project = fetch_project(pid)
+        if payload.role not in ROLES:
+            raise HTTPException(422, "Select a valid shot role")
+        if not project["reference"]:
+            raise HTTPException(409, "Upload your original Reel first")
+        if payload.start + payload.duration > project["reference"]["duration"] + 0.03:
+            raise HTTPException(422, "Selected time range exceeds original video")
+        if render_lock.locked():
+            raise HTTPException(409, "Finish rendering before changing footage")
+        original = reference_file(pid)
+        cid = uuid.uuid4().hex
+        stored = f"{cid}.mp4"
+        dest = root / pid / "clips" / stored
+        cmd = [
+            "ffmpeg", "-y", "-v", "error", "-ss", str(payload.start),
+            "-i", str(original), "-t", str(payload.duration), "-map", "0:v:0",
+            "-an", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "25",
+            "-threads", "2", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+            str(dest)
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+            if result.returncode:
+                raise HTTPException(422, "Unable to cut this part of the Reel")
+            info = probe(dest)
+            if info["duration"] < 1:
+                raise HTTPException(422, "Could not extract a usable shot")
+            display = f"Original Reel {payload.start:.1f}s–{payload.start + payload.duration:.1f}s"
+            with db() as cx:
+                cx.execute("INSERT INTO clips VALUES(?,?,?,?,?,?,?,?)",
+                           (cid, pid, display, stored, payload.role,
+                            info["width"], info["height"], info["duration"]))
+        except BaseException:
+            dest.unlink(missing_ok=True)
+            raise
+        return fetch_project(pid)
 
     def render_job(pid: str, styles: list[str], resolution: str, voice_engine: str,
                    audio_source: str, reference_start: float, reference_seconds: float):

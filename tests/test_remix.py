@@ -38,10 +38,15 @@ def test_reference_audio_remix_end_to_end(tmp_path,monkeypatch):
         assert res.json()["reference"]["has_audio"]
         assert client.get(f"/api/projects/{pid}/reference/audio").status_code==200
         assert client.get(f"/api/projects/{pid}/reference/media").status_code==200
-        for role in ("hero","detail"):
-            r=client.post(f"/api/projects/{pid}/clips",data={"role":role},
-                files={"file":(role+".mp4",io.BytesIO(movie),"video/mp4")})
+        # One old Reel can supply both new visual shots and the original track.
+        for role, start in (("hero", 0), ("detail", 3)):
+            r=client.post(f"/api/projects/{pid}/reference/segments",
+                json={"role":role,"start":start,"duration":3})
             assert r.status_code==201,r.text
+        assert len(client.get(f"/api/projects/{pid}").json()["clips"])==2
+        invalid_clip=client.post(f"/api/projects/{pid}/reference/segments",
+            json={"role":"hero","start":8,"duration":5})
+        assert invalid_clip.status_code==422
         bad=client.post(f"/api/projects/{pid}/renders",json={
             "styles":["stomp"],"audio_source":"reference","reference_start":5,"reference_seconds":8})
         assert bad.status_code==422
