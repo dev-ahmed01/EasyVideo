@@ -85,7 +85,7 @@ CI also uses real FFmpeg video and synthetic voice generation to smoke-test CPU 
 - web/: lightweight local client
 - tests/: unit, API and encoder integration checks
 
-Local projects are stored in easyvideo-data/ (ignored by Git). Override the directory with EASYVIDEO_DATA_DIR. The UI uses installed system fonts only. It makes no Google Fonts requests.
+Local projects are stored in easyvideo-data/ (ignored by Git). Override the directory with EASYVIDEO_DATA_DIR. The interface optionally requests Bricolage Grotesque and Poppins from Google Fonts when online and falls back to installed system fonts offline. Rendering, voiceovers and video files remain local. To prevent all third-party font requests, remove the Google Fonts links in web/index.html.
 
 ## Organic performance tracking
 
