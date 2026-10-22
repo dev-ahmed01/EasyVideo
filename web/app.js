@@ -161,6 +161,20 @@ function reelCard(item,index){
  (exportUrl?'<a class="download" download href="'+escape(exportUrl)+'">↓ Download '+(project.exports[item.id].final?"1080p":"draft")+'</a>':"")+
  '</div></article>';
 }
+function compareUI(){
+ if(!project.audit?.stock_benchmark_ready){
+   return '<div class="footnote">Stock footage comparison unlocks after two illustrative office clips and authentic required product/inventory footage are added.</div>';
+ }
+ const a=project.comparisons?.real_only||{}, b=project.comparisons?.stock_mix||{};
+ const first=a.final||a.preview,second=b.final||b.preview;
+ return '<div class="panel" style="margin-top:20px"><h3 class="panel-title">Office footage A/B</h3>'+
+ '<p class="small-copy">Same voice, same chair footage, two versions. Only office atmosphere changes.</p>'+
+ (!project.narration?'<div class="flag">Upload one approved narration above to make the comparison fair.</div>':'')+
+ '<button type="button" class="secondary" id="benchmark-start" '+(project.narration?"":"disabled")+'>Compare: real vs stock →</button>'+
+ (first&&second?'<div class="ab-grid"><div><strong>Actual footage only</strong><video controls playsinline preload="metadata" src="'+escape(first)+'"></video><a class="download" href="'+escape(first)+'" download>Download control</a></div>'+
+ '<div><strong>With illustrative stock</strong><video controls playsinline preload="metadata" src="'+escape(second)+'"></video><a class="download" href="'+escape(second)+'" download>Download treatment</a></div></div>':'')+
+ '<p class="footnote">Never use stock as claimed inventory, customer installation, or endorsement. Compare retention, shares, and genuine chair-count enquiries after publishing.</p></div>';
+}
 function metricsUI(){
  const fields=[["views","Views"],["reach","Reach"],["avg_watch_seconds","Avg watch (sec)"],["shares","Shares"],["saves","Saves"],["enquiries","Enquiries"]];
  const entries=Object.entries(project.performance||{});
@@ -201,7 +215,7 @@ function showStudio(){
  '<div class="reel-grid">'+project.creatives.map(reelCard).join("")+'</div>'+
  '<div class="btn-row"><button class="primary" id="generate-five" '+(busy?"disabled":"")+'>'+(previews?"↻ Regenerate six":"✦ Generate six drafts")+'</button>'+
  '<button class="secondary" id="final-export" '+(!canFinal||busy?"disabled":"")+'>Export selected · '+list.length+'/3 →</button></div>'+
- '<p class="footnote">Preview at 540p · Final export at 1080p. Three choices maximum.</p>'+
+ '<p class="footnote">Preview at 540p · Final export at 1080p. Three choices maximum.</p>'+ compareUI()+
  metricsUI();
  $$("[data-audio]").forEach(b=>b.onclick=()=>{if(b.disabled)return;audioMode=b.dataset.audio;render();});
  const voiceSelect=$("#voice-provider");
@@ -232,6 +246,11 @@ function showStudio(){
  $("#generate-five").onclick=()=>beginRender(styleIds,"preview");
  $("#final-export").onclick=()=>beginRender(list,"final");
  $("#metric-style").onchange=fillMetrics;fillMetrics();
+ const startBenchmark=$("#benchmark-start");
+ if(startBenchmark)startBenchmark.onclick=async()=>{
+   try{await api("/api/projects/"+project.id+"/benchmarks","POST",{resolution:"preview"});project=await api("/api/projects/"+project.id);render();toast("Building equal-narration comparison");}
+   catch(e){toast(e.message);}
+ };
  $("#save-metrics").onclick=async()=>{
   const style=$("#metric-style").value;const data={post_url:$("#metric-url").value};
   ["views","reach","avg_watch_seconds","shares","saves","enquiries"].forEach(k=>data[k]=Number($("#m-"+k).value||0));

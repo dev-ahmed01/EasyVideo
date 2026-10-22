@@ -47,6 +47,9 @@ class RenderInput(BaseModel):
     reference_start: float = Field(default=0, ge=0, le=600)
     reference_seconds: float = Field(default=18, ge=8, le=90)
 
+class BenchmarkInput(BaseModel):
+    resolution: Literal["preview", "final"] = "preview"
+
 class SelectionInput(BaseModel):
     styles: list[str] = Field(default_factory=list, max_length=3)
 
@@ -157,6 +160,14 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
                 for resolution in ("preview", "final")
                 if (root / pid / "exports" / f"{style}_{resolution}.mp4").is_file()
             }
+        comparisons = {
+            variant: {
+                size: f"/api/projects/{pid}/benchmarks/{variant}/{size}"
+                for size in ("preview", "final")
+                if (root / pid / "benchmarks" / f"{variant}_{size}.mp4").is_file()
+            }
+            for variant in ("real_only", "stock_mix")
+        }
         return {
             "id": pid, "created_at": p["created_at"], "brief": brief_data,
             "shotlist": required_shots(brief), "creatives": creatives(brief),
@@ -164,13 +175,18 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             "clips": clips, "audit": audit(brief, clips),
             "job": {"status": p["job_status"], "message": p["job_message"]},
             "selected": json.loads(p["selected"]), "exports": exports,
-            "performance": metrics, "reference": reference, "narration": narration
+            "performance": metrics, "reference": reference, "narration": narration,
+            "comparisons": comparisons
         }
 
     def invalidate_exports(pid: str):
         folder = root / pid / "exports"
         if folder.is_dir():
             for output in folder.glob("*.mp4"):
+                output.unlink(missing_ok=True)
+        bench = root / pid / "benchmarks"
+        if bench.is_dir():
+            for output in bench.glob("*.mp4"):
                 output.unlink(missing_ok=True)
 
     def update_status(pid: str, status: str, message: str):
@@ -557,6 +573,60 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             raise
         return {"status": "queued", "styles": payload.styles,
                 "resolution": payload.resolution, "audio_source": payload.audio_source}
+
+    def benchmark_job(pid: str, resolution: str):
+        """Only stock-office scenes differ. Narration and authentic product shots are fixed."""
+        try:
+            update_status(pid, "running", "Rendering controlled footage comparison")
+            data = fetch_project(pid)
+            brief = Brief(**data["brief"])
+            narration = root / pid / "narration" / "voice.wav"
+            all_clips = data["clips"]
+            real_clips = [clip for clip in all_clips if clip.get("source_type","real") == "real"]
+            target = root / pid / "benchmarks"
+            target.mkdir(exist_ok=True)
+            for label, clip_set in (("real_only", real_clips), ("stock_mix", all_clips)):
+                def show(message: str, key=label):
+                    update_status(pid, "running", f"{key}: {message}")
+                generated = render_variant(
+                    brief, clip_set, "business", root / pid, resolution,
+                    voiceover_file=narration, progress=show
+                )
+                shutil.copy2(generated, target / f"{label}_{resolution}.mp4")
+            update_status(pid, "ready", "Controlled stock comparison ready")
+        except Exception as e:
+            update_status(pid, "error", str(e)[:1000])
+        finally:
+            render_lock.release()
+
+    @app.post("/api/projects/{pid}/benchmarks", status_code=202)
+    def create_stock_comparison(pid: str, payload: BenchmarkInput, background: BackgroundTasks):
+        data = fetch_project(pid)
+        if not data["audit"]["stock_benchmark_ready"]:
+            raise HTTPException(409, "Add two illustrative stock office clips plus authentic required chair and inventory shots first")
+        if not data["narration"] or not (root / pid / "narration" / "voice.wav").is_file():
+            raise HTTPException(409, "Upload one approved voiceover for both edits before comparing")
+        if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+            raise HTTPException(409, "FFmpeg/FFprobe are required")
+        if not render_lock.acquire(blocking=False):
+            raise HTTPException(409, "A render is already running")
+        try:
+            update_status(pid, "queued", "Queued equal-script comparison")
+            background.add_task(benchmark_job, pid, payload.resolution)
+        except Exception:
+            render_lock.release()
+            raise
+        return {"status": "queued", "resolution": payload.resolution, "variants": ["real_only", "stock_mix"]}
+
+    @app.get("/api/projects/{pid}/benchmarks/{variant}/{resolution}")
+    def download_stock_comparison(pid: str, variant: str, resolution: str):
+        fetch_project(pid)
+        if variant not in ("real_only", "stock_mix") or resolution not in ("preview", "final"):
+            raise HTTPException(404, "No such comparison")
+        path = root / pid / "benchmarks" / f"{variant}_{resolution}.mp4"
+        if not path.is_file():
+            raise HTTPException(404, "Comparison has not been generated")
+        return FileResponse(path, media_type="video/mp4", filename=path.name)
 
     @app.post("/api/projects/{pid}/selection")
     def select(pid: str, payload: SelectionInput):
