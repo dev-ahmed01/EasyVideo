@@ -35,12 +35,13 @@ class BriefInput(BaseModel):
     call_to_action: str = Field(default="DM us for availability", max_length=180)
     script: str = Field(default="", max_length=1800)
     source_mode: Literal["new", "remix"] = "new"
+    brand_name: str = Field(default="", max_length=90)
 
 class RenderInput(BaseModel):
-    styles: list[str] = Field(min_length=1, max_length=5)
+    styles: list[str] = Field(min_length=1, max_length=6)
     resolution: str = "preview"
     voice_engine: str = "auto"
-    audio_source: Literal["generated", "reference"] = "generated"
+    audio_source: Literal["generated", "reference", "uploaded"] = "generated"
     reference_start: float = Field(default=0, ge=0, le=600)
     reference_seconds: float = Field(default=18, ge=8, le=90)
 
@@ -91,6 +92,8 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             stored_name TEXT NOT NULL, role TEXT NOT NULL, width INTEGER NOT NULL,
             height INTEGER NOT NULL, duration REAL NOT NULL,
             FOREIGN KEY(project_id) REFERENCES projects(id));
+        CREATE TABLE IF NOT EXISTS uploaded_narrations (
+            project_id TEXT PRIMARY KEY, filename TEXT NOT NULL, duration REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS reference_reels (
             project_id TEXT PRIMARY KEY, filename TEXT NOT NULL,
             stored_name TEXT NOT NULL, duration REAL NOT NULL,
@@ -121,6 +124,10 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
                 "SELECT * FROM clips WHERE project_id=? ORDER BY rowid", (pid,)).fetchall()]
             raw_reference = cx.execute(
                 "SELECT * FROM reference_reels WHERE project_id=?", (pid,)).fetchone()
+            narration_row = cx.execute("SELECT * FROM uploaded_narrations WHERE project_id=?", (pid,)).fetchone()
+            narration = dict(narration_row) if narration_row else None
+            if narration:
+                narration["audio_url"] = f"/api/projects/{pid}/narration/audio"
             reference = dict(raw_reference) if raw_reference else None
             if reference:
                 reference.pop("stored_name")
@@ -146,7 +153,7 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             "clips": clips, "audit": audit(brief, clips),
             "job": {"status": p["job_status"], "message": p["job_message"]},
             "selected": json.loads(p["selected"]), "exports": exports,
-            "performance": metrics, "reference": reference
+            "performance": metrics, "reference": reference, "narration": narration
         }
 
     def update_status(pid: str, status: str, message: str):
@@ -402,6 +409,62 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             raise
         return fetch_project(pid)
 
+    @app.post("/api/projects/{pid}/narration", status_code=201)
+    async def upload_narration(pid: str, file: UploadFile = File(...)):
+        fetch_project(pid)
+        if render_lock.locked():
+            raise HTTPException(409, "Finish rendering before changing narration")
+        name = Path(file.filename or "narration").name
+        ext = Path(name).suffix.lower()
+        if ext not in {".wav", ".mp3", ".m4a", ".aac", ".ogg"}:
+            raise HTTPException(415, "Choose WAV, MP3, M4A, AAC or OGG")
+        folder = root / pid / "narration"
+        folder.mkdir(parents=True, exist_ok=True)
+        raw = folder / f"raw_{uuid.uuid4().hex}{ext}"
+        temp = folder / f"converted_{uuid.uuid4().hex}.wav"
+        output = folder / "voice.wav"
+        size = 0
+        try:
+            with raw.open("wb") as dest:
+                while chunk := await file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > 25 * 1024 * 1024:
+                        raise HTTPException(413, "Audio exceeds 25 MB")
+                    dest.write(chunk)
+            p = subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(raw),
+                "-map", "0:a:0", "-vn", "-ac", "1", "-ar", "16000",
+                "-c:a", "pcm_s16le", str(temp)],
+                capture_output=True, text=True, timeout=120)
+            if p.returncode:
+                raise HTTPException(422, "No usable audio was found")
+            p = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1", str(temp)],
+                capture_output=True, text=True, timeout=15, check=True)
+            duration = float(p.stdout.strip())
+            if not 2 <= duration <= 180:
+                raise HTTPException(422, "Narration must be 2–180 seconds")
+            temp.replace(output)
+            with db() as cx:
+                cx.execute("""INSERT INTO uploaded_narrations(project_id,filename,duration)
+                    VALUES(?,?,?) ON CONFLICT(project_id) DO UPDATE SET
+                    filename=excluded.filename, duration=excluded.duration""",
+                    (pid, name[:160], duration))
+        finally:
+            raw.unlink(missing_ok=True)
+            temp.unlink(missing_ok=True)
+            await file.close()
+        return fetch_project(pid)
+
+    @app.get("/api/projects/{pid}/narration/audio")
+    def narration_audio(pid: str):
+        p = fetch_project(pid)
+        if not p["narration"]:
+            raise HTTPException(404, "No narration")
+        path = root / pid / "narration" / "voice.wav"
+        if not path.is_file():
+            raise HTTPException(404, "Narration file unavailable")
+        return FileResponse(path, media_type="audio/wav")
+
     def render_job(pid: str, styles: list[str], resolution: str, voice_engine: str,
                    audio_source: str, reference_start: float, reference_seconds: float):
         try:
@@ -412,10 +475,11 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
                 def show(message: str, i=index):
                     update_status(pid, "running", f"{i+1}/{len(styles)} · {message}")
                 reference_path = reference_file(pid) if audio_source == "reference" else None
+                narration_file = root / pid / "narration" / "voice.wav" if audio_source == "uploaded" else None
                 render_variant(brief, data["clips"], style, root / pid, resolution,
                                voice_engine, progress=show, reference_video=reference_path,
                                reference_start=reference_start,
-                               reference_seconds=reference_seconds)
+                               reference_seconds=reference_seconds, voiceover_file=narration_file)
             update_status(pid, "ready", f"{len(styles)} {resolution} Reel(s) ready")
         except Exception as exc:
             update_status(pid, "error", str(exc)[:1000])
@@ -437,6 +501,9 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
                 raise HTTPException(409, "Upload an existing Reel that contains audio first")
             if payload.reference_start + payload.reference_seconds > data["reference"]["audio_seconds"] + 0.1:
                 raise HTTPException(422, "Selected original audio range exceeds available audio")
+        elif payload.audio_source == "uploaded":
+            if not data["narration"] or not (root / pid / "narration" / "voice.wav").is_file():
+                raise HTTPException(409, "Upload narration first")
         else:
             if payload.voice_engine != "auto" and payload.voice_engine not in engines():
                 raise HTTPException(422, "Voice provider is unavailable")
