@@ -6,7 +6,8 @@ sequential edits. Each shot role comes from the uploader; no fake vision claims.
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-import array, io, json, math, os, random, subprocess, wave
+import array, io, json, math, os, random, re, subprocess, wave
+from functools import lru_cache
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -140,6 +141,25 @@ def _percussion(output:Path, durations:list[float], style:str):
         f.setnchannels(1);f.setsampwidth(2);f.setframerate(rate)
         f.writeframes(samples.tobytes())
 
+@lru_cache(maxsize=96)
+def _scene_changes(path_text: str) -> tuple[float, ...]:
+    """Find actual shot boundaries without an AI/GPU model.
+
+    FFmpeg's lightweight scene-score detector operates on 160px downscaled
+    frames; cached per source file so we do not rescan before every edit.
+    """
+    src=Path(path_text)
+    try:
+        p=subprocess.run(
+            ["ffmpeg","-hide_banner","-v","info","-i",str(src),
+             "-vf","scale=160:-2,select=gt(scene\\,0.14),showinfo",
+             "-an","-f","null","-"],
+            capture_output=True,text=True,timeout=100)
+        values=[float(x) for x in re.findall(r"pts_time:([0-9.]+)",p.stderr)]
+        return tuple(v for v in values if v>=0)
+    except (OSError,ValueError,subprocess.TimeoutExpired):
+        return ()
+
 def _choose(role, clips, used, index, style):
     options=[x for x in clips if x["role"]==role and x.get("duration",0)>=1]
     if not options: options=[x for x in clips if x["role"]=="hero"] or clips
@@ -193,7 +213,9 @@ def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
         # Move through longer clips, reusing time points instead of freezing four long blocks.
         room=max(0,clip["duration"]-duration)
         frac=((index*0.17+count*.28+(0.12 if style=="cinematic" else 0))%0.86)
-        start=round(room*frac,2)
+        boundaries=[t for t in _scene_changes(str(src)) if 0.25 <= t <= room]
+        # Cycle scene boundaries when one long clip contains multiple camera shots.
+        start=round(boundaries[(index+count)%len(boundaries)] if len(boundaries)>=2 else room*frac,2)
         title=plan["beats"][title_positions[index]] if index in title_positions else ""
         png=work/f"graphic_{index:02d}.png";_graphic(png,title,style,width,height,getattr(brief,"brand_name",""))
         scene=work/f"scene_{index:02d}.mp4"
@@ -208,7 +230,8 @@ def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
     output=outdir/f"{style}_{resolution}.mp4"
     filt=("[1:a]volume=1.14,highpass=f=75,acompressor=threshold=-22dB:"
           "ratio=2:attack=8:release=110[vo];[2:a]volume=0.38[fx];"
-          "[vo][fx]amix=inputs=2:duration=longest:dropout_transition=0[a]")
+          "[vo][fx]amix=inputs=2:duration=longest:dropout_transition=0[mix];"
+          "[mix]loudnorm=I=-16:TP=-1.5:LRA=11[a]")
     run(["ffmpeg","-y","-v","error","-i",str(combined),"-i",str(voice),"-i",str(accents),
          "-filter_complex",filt,"-map","0:v:0","-map","[a]","-c:v","copy",
          "-c:a","aac","-b:a","128k","-t",str(sum(durations)),
