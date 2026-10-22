@@ -201,9 +201,14 @@ def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
     durations=list(durations)
     total=sum(durations)
     # A spoken story determines timing; cuts flex to allow full narration.
-    if voice_duration+0.6>total:
-        factor=(voice_duration+0.6)/total
+    # Align the cut sequence with speech instead of leaving a long silent tail.
+    target=max(11.2,voice_duration+1.1)
+    if target>total:
+        factor=target/total
         durations=[round(d*factor,3) for d in durations]
+    elif target<total:
+        factor=target/total
+        durations=[max(0.9,round(d*factor,3)) for d in durations]
     used={};pieces=[]
     title_positions={0:0,2:1,4:2,len(durations)-1:3}
     for index,(role,duration) in enumerate(zip(roles,durations)):
