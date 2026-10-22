@@ -118,3 +118,7 @@ Six styles now use 7–9 short clips, detected letterbox removal with blurred re
 ### Voice and music licensing
 
 Before using a downloaded Piper voice commercially, read the model card for that exact voice and its training dataset license. Some otherwise high-quality models restrict commercial use. This repository does not bundle voice-model weights, third-party music or fonts. The separately generated six-Reel demo used a basic synthetic fallback where neural weights were unavailable; it is not a claim that the computer had Piper installed.
+
+### Performance and browser safeguards
+
+Scene cuts are cached once per source during each sequential export, saving repeated scene analysis on CPU-only laptops. The Reel Lab soundtrack selector is covered by a lightweight UI source-contract test in addition to JavaScript syntax checking. These checks do not replace visual browser QA.
