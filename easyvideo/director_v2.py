@@ -55,38 +55,67 @@ def _font(size: int, bold=True):
     return ImageFont.load_default()
 
 def _graphic(output:Path, title:str, style:str, width:int, height:int, brand_name:str=""):
-    canvas=Image.new("RGBA",(width,height),(0,0,0,0))
+    """Render modest, temporary copy inside a conservative central safe zone."""
+    image=Image.new("RGBA",(width,height),(0,0,0,0))
     if not title:
-        canvas.save(output);return
-    draw=ImageDraw.Draw(canvas)
+        image.save(output)
+        return
+    d=ImageDraw.Draw(image)
     accent,raw_size=PALETTE[style]
-    text_font=_font(max(24,round(raw_size*width/540)))
-    small_font=_font(max(10,round(12*width/540)),False)
-    max_width=round(width*.78)
+    left=int(width*.095)
+    right=int(width*.83)
+    top=int(height*.22)
+    bottom=int(height*.61)
+    size=max(19,round(min(raw_size*.68,37)*width/540))
+    font=_font(size)
     lines=[];line=""
-    for word in title.strip().upper().split():
+    for word in title.replace("\n"," ").upper().split():
         trial=(line+" "+word).strip()
-        if line and draw.textbbox((0,0),trial,font=text_font)[2]>max_width:
-            lines.append(line);line=word
-        else:line=trial
-    if line:lines.append(line)
-    lines=lines[:3]
-    x=int(width*.095);y=int(height*.125)
-    leading=int(raw_size*width/540*1.14)
-    text_width=max((draw.textbbox((0,0),s,font=text_font)[2] for s in lines),default=0)
-    pad=int(width*.033)
-    edge=min(width-int(width*.045),x+text_width+pad)
-    draw.rounded_rectangle((x-pad,y-pad,edge,y+len(lines)*leading+pad),radius=12,fill=(9,24,19,222))
-    if style=="stomp":
-        draw.rectangle((x-pad,y-pad,x-pad+max(4,int(width*.009)),y+len(lines)*leading+pad),fill=accent)
-    for i,t in enumerate(lines):
-        draw.text((x,y+i*leading),t,font=text_font,fill=accent)
+        if line and d.textbbox((0,0),trial,font=font)[2] > (right-left-int(width*.05)):
+            lines.append(line)
+            line=word
+        else:
+            line=trial
+    if line:
+        lines.append(line)
+    lines=lines[:2]
+    lineheight=int(font.size*1.23)
+    pad=max(8,round(width*.014))
+    width_text=max(d.textbbox((0,0),v,font=font)[2] for v in lines)
+    lower=min(bottom,top+lineheight*len(lines)+pad)
+    d.rounded_rectangle((left-pad,top-pad,min(right,left+width_text+pad),lower),
+                        radius=9,fill=(13,29,23,169))
+    for i,line in enumerate(lines):
+        d.text((left,top+i*lineheight),line,font=font,fill=accent)
     if brand_name:
-        tag_height=int(height*.043);tag_y=int(height*.049)
-        draw.rounded_rectangle((x-pad,tag_y-5,x+int(width*.62),tag_y+tag_height),
-                               radius=7,fill=(8,25,20,198))
-        draw.text((x,tag_y+1),brand_name[:26].upper(),font=small_font,fill="#EBF8E9")
-    canvas.save(output)
+        label_font=_font(max(13,round(16*width/540)),False)
+        label_y=min(bottom-label_font.size-10,lower+int(height*.022))
+        d.text((left,label_y),brand_name[:26].upper(),font=label_font,
+               fill=(247,249,243,235),stroke_width=1,stroke_fill=(0,0,0,170))
+    image.save(output)
+
+
+def crop_window(x:int,y:int,w:int,h:int,out_w:int,out_h:int)->tuple[int,int,int,int]:
+    """Crops real pixels to vertical instead of creating fake blurred filler."""
+    if min(w,h,out_w,out_h)<=0:
+        raise ValueError("Invalid video dimensions")
+    ratio=out_w/out_h
+    if w/h>=ratio:
+        actual=max(2,min(w,(int(h*ratio)//2)*2))
+        return x+(w-actual)//2,y,actual,h
+    actual=max(2,min(h,(int(w/ratio)//2)*2))
+    return x,y+(h-actual)//2,w,actual
+
+
+def title_moments(style:str,last:int)->dict[int,int]:
+    if style=="stomp":
+        return {0:0,max(1,last//3):1,max(2,last*2//3):2,last:3}
+    if style=="cinematic":
+        return {0:0,last:3}
+    if style in ("features","business","voice_story"):
+        return {0:0,max(1,last//2):2,last:3}
+    return {0:0,last:3}
+
 
 def _content_area(src:Path, timestamp:float) -> tuple[int,int,int,int]:
     # Detect black bars baked into footage. This is media geometry, not scene recognition.
@@ -108,20 +137,20 @@ def _content_area(src:Path, timestamp:float) -> tuple[int,int,int,int]:
 
 def _cut(src:Path,dst:Path,png:Path,start:float,duration:float,width:int,height:int):
     x,y,w,h=_content_area(src,start+min(duration*.5,1))
-    filt=(
-      f"[0:v]fps=24,crop={w}:{h}:{x}:{y},split=2[bg0][fg0];"
-      f"[bg0]scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},"
-      "boxblur=9:1,eq=brightness=-0.14:saturation=0.84[bg];"
-      f"[fg0]scale={width}:{int(height*.87)}:force_original_aspect_ratio=decrease,setsar=1[fg];"
-      "[bg][fg]overlay=(W-w)/2:(H-h)/2:format=auto[plate];"
-      "[1:v]format=rgba,fade=t=in:st=0:d=0.13:alpha=1[card];"
+    x,y,w,h=crop_window(x,y,w,h,width,height)
+    vf=(
+      f"[0:v]fps=24,crop={w}:{h}:{x}:{y},scale={width}:{height}:flags=lanczos,"
+      "eq=contrast=1.035:saturation=1.05,format=yuv420p[plate];"
+      f"[1:v]format=rgba,fade=t=in:st=0:d=0.12:alpha=1,"
+      f"fade=t=out:st={max(0.3,duration-0.22):.3f}:d=0.22:alpha=1[card];"
       "[plate][card]overlay=0:0:format=auto,format=yuv420p[out]"
     )
     run(["ffmpeg","-y","-v","error","-ss",str(round(start,3)),"-i",str(src),
          "-loop","1","-framerate","24","-i",str(png),"-t",str(duration),
-         "-filter_complex",filt,"-map","[out]","-an",
+         "-filter_complex",vf,"-map","[out]","-an",
          "-c:v","libx264","-preset","ultrafast","-crf","25","-threads","2",
          "-pix_fmt","yuv420p",str(dst)],240)
+
 
 def _percussion(output:Path, durations:list[float], style:str):
     rate=16000;total=sum(durations);n=max(1,math.ceil(total*rate))
@@ -210,7 +239,7 @@ def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
         factor=target/total
         durations=[max(0.9,round(d*factor,3)) for d in durations]
     used={};pieces=[];scene_cache={}
-    title_positions={0:0,2:1,4:2,len(durations)-1:3}
+    title_positions=title_moments(style,len(durations)-1)
     for index,(role,duration) in enumerate(zip(roles,durations)):
         clip,count=_choose(role,clips,used,index,style)
         src=project_dir/"clips"/clip["stored_name"]
@@ -225,7 +254,7 @@ def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
         # Cycle scene boundaries when one long clip contains multiple camera shots.
         start=round(boundaries[(index+count)%len(boundaries)] if len(boundaries)>=2 else room*frac,2)
         title=plan["beats"][title_positions[index]] if index in title_positions else ""
-        png=work/f"graphic_{index:02d}.png";_graphic(png,title,style,width,height,getattr(brief,"brand_name",""))
+        png=work/f"graphic_{index:02d}.png";_graphic(png,title,style,width,height,getattr(brief,"brand_name","") if index==len(durations)-1 else "")
         scene=work/f"scene_{index:02d}.mp4"
         _cut(src,scene,png,start,duration,width,height);pieces.append(scene)
         if progress:progress(f"{plan['title']}: cut {index+1}/{len(durations)}")

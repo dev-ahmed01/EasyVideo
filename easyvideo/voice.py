@@ -35,14 +35,15 @@ def engines() -> list[str]:
     found: list[str] = []
     if _piper_model() and (_modern_piper_installed() or shutil.which("piper")):
         found.append("piper")
+    # A configured neural voice must win over basic system TTS.
+    if voicestudio_bridge.available():
+        found.append("voicestudio")
     if platform.system() == "Windows" and (shutil.which("powershell") or shutil.which("pwsh")):
         found.append("sapi")
     if shutil.which("espeak-ng"):
         found.append("espeak-ng")
     elif shutil.which("espeak"):
         found.append("espeak")
-    if voicestudio_bridge.available():
-        found.append("voicestudio")
     return found
 
 

@@ -77,17 +77,17 @@ def creatives(brief: Brief) -> list[dict]:
     cinematic_hook = "THE DETAILS MATTER" if premium else "MEET YOUR NEXT CHAIR"
     shopper_hook = "SMARTER CHAIR SHOPPING" if budget else "BEFORE YOU BUY"
     data = [
-        ("stomp", ["STOP SCROLLING", product.upper(), offerline.upper(), "ENQUIRE TODAY"],
+        ("stomp", ["OFFICE SEATING IN MOTION", "DETAILS UP CLOSE", "REAL OFFICE FOOTAGE", "DM FOR DETAILS"],
          f"Looking for {product}? Take a closer look. {factline} {offerline} {cta}."),
-        ("cinematic", [cinematic_hook, product, "A BETTER WORKSPACE", "DISCOVER MORE"],
+        ("cinematic", [cinematic_hook, "BACK. SEAT. FINISH.", "SEEN IN A WORKSPACE", "ASK FOR DETAILS"],
          f"A workspace starts with the details. Introducing {product}. {factline} {cta}."),
         ("features", [shopper_hook, "LOOK CLOSELY", "CHECK THE DETAILS", "ASK US"],
          f"Choosing an office chair? Look closely at the build, material and condition. {factline} {cta}."),
-        ("business", ["FURNISHING AN OFFICE?", "SEE WHAT IS AVAILABLE", "REAL WORKSPACES", "GET IN TOUCH"],
+        ("business", ["FURNISHING AN OFFICE?", "SEE THE ACTUAL CHAIR", "IN A REAL WORKSPACE", "DM FOR OPTIONS"],
          f"Planning seating for a workspace? Explore {product} options for your office. {offerline} {cta}."),
         ("social", [opener, "HERE IS A CLOSER LOOK", "YOUR WORKSPACE, SORTED", "MESSAGE US"],
          f"Quick question. Is your current office chair working for your setup? Here's {product}. {factline} {cta}."),
-        ("voice_story", ["MEET THE CHAIR", "REAL DETAILS", "WORKSPACE READY", "ENQUIRE TODAY"],
+        ("voice_story", ["MEET THIS OFFICE CHAIR", "DETAILS UP CLOSE", "SEE IT IN A WORKSPACE", "DM FOR DETAILS"],
          f"Looking for seating for your workspace? Explore this {product}. See the details up close and check the current options. {cta}."),
     ]
     result = []
