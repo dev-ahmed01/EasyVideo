@@ -49,3 +49,32 @@ def test_save_and_update_organic_performance(tmp_path):
         assert client.put(url,json={**metrics, "enquiries":7}).json()["performance"]["stomp"]["enquiries"] == 7
         assert client.put(url,json={"views":-1}).status_code == 422
         assert client.put(f"/api/projects/{pid}/performance/invalid",json=metrics).status_code == 404
+
+
+def test_uploaded_narration_validation_and_playback(tmp_path):
+    import io
+    import math
+    import struct
+    import wave
+    audio = io.BytesIO()
+    with wave.open(audio, "wb") as out:
+        out.setnchannels(1)
+        out.setsampwidth(2)
+        out.setframerate(16000)
+        for i in range(16000 * 3):
+            out.writeframesraw(struct.pack("<h", round(600 * math.sin(2 * math.pi * 200 * i / 16000))))
+    with TestClient(create_app(tmp_path)) as client:
+        pid=client.post("/api/projects",json=BRIEF).json()["id"]
+        invalid=client.post(f"/api/projects/{pid}/narration",
+            files={"file":("wrong.txt",io.BytesIO(b"not voice"),"text/plain")})
+        assert invalid.status_code==415
+        posted=client.post(f"/api/projects/{pid}/narration",
+            files={"file":("narration.wav",io.BytesIO(audio.getvalue()),"audio/wav")})
+        assert posted.status_code==201, posted.text
+        assert 2 < posted.json()["narration"]["duration"] < 4
+        played=client.get(f"/api/projects/{pid}/narration/audio")
+        assert played.status_code==200
+        assert len(played.content)>1000
+        blocked=client.post(f"/api/projects/{pid}/renders",
+            json={"styles":["voice_story"],"audio_source":"uploaded"})
+        assert blocked.status_code==409

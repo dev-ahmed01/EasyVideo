@@ -156,6 +156,12 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             "performance": metrics, "reference": reference, "narration": narration
         }
 
+    def invalidate_exports(pid: str):
+        folder = root / pid / "exports"
+        if folder.is_dir():
+            for output in folder.glob("*.mp4"):
+                output.unlink(missing_ok=True)
+
     def update_status(pid: str, status: str, message: str):
         with db() as c:
             c.execute("UPDATE projects SET job_status=?,job_message=? WHERE id=?",
@@ -234,6 +240,7 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             raise
         finally:
             await file.close()
+        invalidate_exports(pid)
         return fetch_project(pid)
 
     @app.patch("/api/projects/{pid}/clips/{cid}")
@@ -246,6 +253,7 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
                              (payload.role, pid, cid))
             if cur.rowcount != 1:
                 raise HTTPException(404, "Clip not found")
+        invalidate_exports(pid)
         return fetch_project(pid)
 
     @app.delete("/api/projects/{pid}/clips/{cid}")
@@ -258,6 +266,7 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
                 raise HTTPException(404, "Clip not found")
             cx.execute("DELETE FROM clips WHERE id=? AND project_id=?", (cid, pid))
         (root / pid / "clips" / row["stored_name"]).unlink(missing_ok=True)
+        invalidate_exports(pid)
         return fetch_project(pid)
 
     @app.get("/api/projects/{pid}/clips/{cid}/media")
@@ -407,6 +416,7 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
         except BaseException:
             dest.unlink(missing_ok=True)
             raise
+        invalidate_exports(pid)
         return fetch_project(pid)
 
     @app.post("/api/projects/{pid}/narration", status_code=201)
@@ -453,6 +463,7 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             raw.unlink(missing_ok=True)
             temp.unlink(missing_ok=True)
             await file.close()
+        invalidate_exports(pid)
         return fetch_project(pid)
 
     @app.get("/api/projects/{pid}/narration/audio")

@@ -237,4 +237,12 @@ def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
          "-c:a","aac","-b:a","128k","-t",str(sum(durations)),
          "-movflags","+faststart",str(output)],120)
     if progress:progress(f"{plan['title']} finished with {engine}")
+    # Retain deliverables; discard intermediate media to reduce disk use.
+    for old in work.glob("scene_*.mp4"):
+        old.unlink(missing_ok=True)
+    for old in work.glob("graphic_*.png"):
+        old.unlink(missing_ok=True)
+    combined.unlink(missing_ok=True)
+    accents.unlink(missing_ok=True)
+    manifest.unlink(missing_ok=True)
     return output
