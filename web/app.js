@@ -4,7 +4,7 @@
 const $=s=>document.querySelector(s);
 const $$=s=>Array.from(document.querySelectorAll(s));
 const escape=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const roles={hero:"Full chair",detail:"Close-up",function:"Feature demo",workspace:"Desk / workspace",inventory:"Multiple chairs",proof:"Showroom / proof"};
+const roles={hero:"Full chair",detail:"Close-up",function:"Feature demo",workspace:"Desk / workspace",office_context:"Office atmosphere (stock)",inventory:"Multiple chairs",proof:"Showroom / proof"};
 const styleIds=["stomp","cinematic","features","business","social","voice_story"];
 let project=null,stage=1,mode="new",audioMode="generated",audioStart=0,audioLength=18,chosen=new Set(),health=null,timer=null,voiceProvider="auto";
 function toast(message){const box=$("#toast");box.textContent=message;box.classList.add("show");setTimeout(()=>box.classList.remove("show"),4500);}
@@ -72,6 +72,7 @@ function clipList(){
  return project.clips.map(c=>'<div class="clip-item">'+
  '<video class="clip-thumb" src="/api/projects/'+project.id+'/clips/'+c.id+'/media" preload="metadata" muted playsinline></video>'+
  '<div class="clip-text"><strong>'+escape(c.filename)+'</strong><small>'+Math.round(c.duration)+'s · '+c.width+'×'+c.height+'</small></div>'+
+ '<span class="source-chip '+(c.source_type==="stock"?"stock-chip":"")+'">'+(c.source_type==="stock"?"Illustrative stock":"Real footage")+'</span>'+
  '<select class="input clip-role" data-id="'+c.id+'" aria-label="Shot role">'+choices(c.role)+'</select>'+
  '<button type="button" class="danger-text remove-clip" data-id="'+c.id+'">Remove</button></div>').join("");
 }
@@ -99,15 +100,31 @@ function showFootage(){
  (project.brief.source_mode==="remix"?referencePanel():"")+
  '<div class="panel"><h2 class="panel-title">Shot checklist <span class="stat-pill">'+a.matched_required+'/'+a.required_total+' essential</span></h2>'+shotList()+'</div></div>'+
  '<div class="stack"><div class="panel"><h2 class="panel-title">Footage library</h2>'+
- '<div class="upload-area"><strong>Drop in your clips</strong><p>Choose what each video shows</p><div class="upload-controls"><select class="input" id="upload-role">'+choices("hero")+'</select><label class="secondary" for="video-upload">Add footage ↑</label></div>'+
+ '<div class="upload-area"><strong>Drop in your clips</strong><p>Real product shots and licensed atmosphere footage are different.</p>'+
+ '<div class="upload-controls"><select class="input" id="upload-source" aria-label="Footage origin"><option value="real">Actual product / shop</option><option value="stock">Illustrative licensed stock</option></select>'+
+ '<select class="input" id="upload-role">'+choices("hero")+'</select><label class="secondary" for="video-upload">Add footage ↑</label></div>'+
  '<input class="file-hidden" id="video-upload" type="file" accept="video/*,.mkv,.mov,.m4v" multiple></div>'+
  '<div id="clip-list">'+clipList()+'</div>'+
  (a.missing.length?'<div class="mini-divider"></div>'+a.missing.map(s=>'<div class="flag">Missing: '+escape(s.label)+'</div>').join(""):'<div class="flag info">All essential shots are covered.</div>')+
- (a.warnings.filter(w=>!w.startsWith("Shot roles")).slice(0,3).map(w=>'<div class="flag info">'+escape(w)+'</div>').join(""))+
+ (a.warnings.filter(w=>!w.startsWith("Shot roles")).slice(0,4).map(w=>'<div class="flag info">'+escape(w)+'</div>').join(""))+
+ (a.stock_benchmark_ready?'<div class="flag info">✓ Independent stock comparison is ready. Create an office-sales variant and compare it with your original edit.</div>':'')+
  '<div class="btn-row"><button class="primary" id="to-studio" '+(!a.ready||refNeeded?"disabled":"")+'>Create five Reels →</button></div>'+
  '<p class="footnote">We inspect duration and framing; please confirm your shot labels visually.</p></div></div></div>';
+ const sourceInput=$("#upload-source");
+ sourceInput.onchange=()=>{
+   if(sourceInput.value==="stock")$("#upload-role").value="office_context";
+   else $("#upload-role").value="hero";
+ };
  const upload=$("#video-upload");
- upload.onchange=async()=>{const files=[...upload.files],role=$("#upload-role").value;for(const file of files){const form=new FormData();form.append("file",file);form.append("role",role);try{toast("Checking "+file.name);project=await api("/api/projects/"+project.id+"/clips","POST",form);}catch(e){toast(e.message);}}render();};
+ upload.onchange=async()=>{
+   const files=[...upload.files],role=$("#upload-role").value,source=sourceInput.value;
+   for(const file of files){
+     const form=new FormData();form.append("file",file);form.append("role",role);form.append("source_type",source);
+     try{toast("Checking "+file.name);project=await api("/api/projects/"+project.id+"/clips","POST",form);}
+     catch(e){toast(e.message);}
+   }
+   render();
+ };
  const importButton=$("#import-section");
  if(importButton)importButton.onclick=async()=>{
   const payload={role:$("#section-role").value,start:Number($("#section-start").value),duration:Number($("#section-duration").value)};
@@ -143,6 +160,20 @@ function reelCard(item,index){
  '<button class="caption-action" type="button" data-copy="pinned_comment" data-style="'+item.id+'">Pinned comment</button></div></details>'+
  (exportUrl?'<a class="download" download href="'+escape(exportUrl)+'">↓ Download '+(project.exports[item.id].final?"1080p":"draft")+'</a>':"")+
  '</div></article>';
+}
+function compareUI(){
+ if(!project.audit?.stock_benchmark_ready){
+   return '<div class="footnote">Stock footage comparison unlocks after two illustrative office clips and authentic required product/inventory footage are added.</div>';
+ }
+ const a=project.comparisons?.real_only||{}, b=project.comparisons?.stock_mix||{};
+ const first=a.final||a.preview,second=b.final||b.preview;
+ return '<div class="panel" style="margin-top:20px"><h3 class="panel-title">Office footage A/B</h3>'+
+ '<p class="small-copy">Same voice, same chair footage, two versions. Only office atmosphere changes.</p>'+
+ (!project.narration?'<div class="flag">Upload one approved narration above to make the comparison fair.</div>':'')+
+ '<button type="button" class="secondary" id="benchmark-start" '+(project.narration?"":"disabled")+'>Compare: real vs stock →</button>'+
+ (first&&second?'<div class="ab-grid"><div><strong>Actual footage only</strong><video controls playsinline preload="metadata" src="'+escape(first)+'"></video><a class="download" href="'+escape(first)+'" download>Download control</a></div>'+
+ '<div><strong>With illustrative stock</strong><video controls playsinline preload="metadata" src="'+escape(second)+'"></video><a class="download" href="'+escape(second)+'" download>Download treatment</a></div></div>':'')+
+ '<p class="footnote">Never use stock as claimed inventory, customer installation, or endorsement. Compare retention, shares, and genuine chair-count enquiries after publishing.</p></div>';
 }
 function metricsUI(){
  const fields=[["views","Views"],["reach","Reach"],["avg_watch_seconds","Avg watch (sec)"],["shares","Shares"],["saves","Saves"],["enquiries","Enquiries"]];
@@ -184,7 +215,7 @@ function showStudio(){
  '<div class="reel-grid">'+project.creatives.map(reelCard).join("")+'</div>'+
  '<div class="btn-row"><button class="primary" id="generate-five" '+(busy?"disabled":"")+'>'+(previews?"↻ Regenerate six":"✦ Generate six drafts")+'</button>'+
  '<button class="secondary" id="final-export" '+(!canFinal||busy?"disabled":"")+'>Export selected · '+list.length+'/3 →</button></div>'+
- '<p class="footnote">Preview at 540p · Final export at 1080p. Three choices maximum.</p>'+
+ '<p class="footnote">Preview at 540p · Final export at 1080p. Three choices maximum.</p>'+ compareUI()+
  metricsUI();
  $$("[data-audio]").forEach(b=>b.onclick=()=>{if(b.disabled)return;audioMode=b.dataset.audio;render();});
  const voiceSelect=$("#voice-provider");
@@ -215,6 +246,11 @@ function showStudio(){
  $("#generate-five").onclick=()=>beginRender(styleIds,"preview");
  $("#final-export").onclick=()=>beginRender(list,"final");
  $("#metric-style").onchange=fillMetrics;fillMetrics();
+ const startBenchmark=$("#benchmark-start");
+ if(startBenchmark)startBenchmark.onclick=async()=>{
+   try{await api("/api/projects/"+project.id+"/benchmarks","POST",{resolution:"preview"});project=await api("/api/projects/"+project.id);render();toast("Building equal-narration comparison");}
+   catch(e){toast(e.message);}
+ };
  $("#save-metrics").onclick=async()=>{
   const style=$("#metric-style").value;const data={post_url:$("#metric-url").value};
   ["views","reach","avg_watch_seconds","shares","saves","enquiries"].forEach(k=>data[k]=Number($("#m-"+k).value||0));

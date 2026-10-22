@@ -8,7 +8,8 @@ ROLES = {
     "hero": ("Full chair / hero", "Capture the entire chair in a clean frame. Move slowly from front to 45 degrees."),
     "detail": ("Material / detail", "Record close-ups of mesh, upholstery, base, seams and finish."),
     "function": ("Real feature demonstration", "Show only functions the actual chair supports, preferably with hands in frame."),
-    "workspace": ("Chair in a workspace", "Film the chair beside a real desk in a tidy office."),
+    "workspace": ("Chair in a workspace", "Film the actual chair beside a real desk in a tidy office."),
+    "office_context": ("Illustrative office atmosphere", "Use a licensed stock clip of a real office or team at work. Stock must not be described as a customer's Furnihub installation."),
     "inventory": ("Inventory / multiple chairs", "Show available stock or a genuine large-office installation."),
     "proof": ("Trust / business proof", "Show genuine showroom, packing, installation or real customer-approved footage."),
 }
@@ -130,7 +131,11 @@ def creatives(brief: Brief) -> list[dict]:
 
 def audit(brief: Brief, clips: list[dict]) -> dict:
     shotlist = required_shots(brief)
-    available = {clip["role"] for clip in clips if clip.get("duration", 0) >= 1}
+    real_only = {"hero", "detail", "function", "inventory", "proof", "workspace"}
+    available = {
+        clip["role"] for clip in clips if clip.get("duration", 0) >= 1
+        and (clip["role"] not in real_only or clip.get("source_type", "real") == "real")
+    }
     missing = [s for s in shotlist if s["required"] and s["role"] not in available]
     suggestions = [s for s in shotlist if not s["required"] and s["role"] not in available]
     warnings = []
@@ -142,11 +147,21 @@ def audit(brief: Brief, clips: list[dict]) -> dict:
             warnings.append(f"{clip['filename']}: low resolution may reduce sharpness.")
         if w > h:
             warnings.append(f"{clip['filename']}: landscape footage will be center-cropped to vertical. Keep chair centered.")
+    stock_count = sum(c.get("source_type") == "stock" and c.get("role") == "office_context" for c in clips)
+    business = any(term in clean(brief.intent + " " + brief.audience, 1700).lower()
+                   for term in ("bulk", "b2b", "startup", "furnish", "corporate", "office setup"))
+    if business and stock_count < 2:
+        warnings.append("Stock A/B benchmark: add two independent licensed office-atmosphere videos to test whether extra footage improves retention.")
+    if stock_count:
+        warnings.append("Illustrative stock is not proof of Furnihub inventory, completed jobs, or customer endorsements.")
     if clips:
         warnings.append("Shot roles are your labels; EasyVideo verifies file properties, not the actual visual subject. Review the previews.")
     return {
         "ready": bool(clips) and not missing,
         "missing": missing, "suggested": suggestions, "warnings": warnings,
         "uploaded": len(clips), "required_total": sum(bool(x["required"]) for x in shotlist),
-        "matched_required": sum(bool(x["required"] and x["role"] in available) for x in shotlist)
+        "matched_required": sum(bool(x["required"] and x["role"] in available) for x in shotlist),
+        "illustrative_stock_count": stock_count,
+        "stock_benchmark_ready": bool(business and not missing and stock_count >= 2),
+        "stock_benchmark_hint": "Compare the office-sales Reel with and without stock context shots; do not treat illustrative offices as prior customer installations."
     }

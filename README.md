@@ -136,3 +136,7 @@ EasyVideo can connect to the independent [VoiceStudio](https://github.com/debpal
 ## Instagram discovery pack
 
 For each generated style EasyVideo prepares a searchable headline, natural-language caption, simple hashtags, accessibility alt text, a pinned comment and a manual publishing checklist. Optional city/area comes **only from your campaign brief**, avoiding fabricated location targeting. Discovery depends on relevance and real audience response, not keyword stuffing. No automated posting or reach promises.
+
+### Licensed stock vs real footage
+
+For office-sales Reels, label commercially licensed B-roll as Illustrative stock and assign only the Office atmosphere role. Genuine company/product footage must supply Hero, Detail, Workspace, Inventory, Function and Customer proof roles. Stock office settings are never presented as Furnihub's own completed projects or available products. When two independent stock clips have been added along with real required shots, EasyVideo reports the stock benchmark ready. Both video variants still require human review and truthful copy.
