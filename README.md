@@ -114,3 +114,7 @@ While reviewing the original Reel in **Footage**, enter a timestamp, duration an
 ## Director v2 and narration
 
 Six styles now use 7–9 short clips, detected letterbox removal with blurred real-footage fills, clear upper-third typography, and percussive sound accents. Pick the original soundtrack, a separately uploaded narration, or a locally synthesized voice. For better neural speech on an 8 GB CPU computer, install Piper and a correctly licensed voice model; Windows SAPI remains a basic fallback. The Reel Lab keeps the new sixth Voice Story format. No guaranteed social reach is claimed.
+
+### Voice and music licensing
+
+Before using a downloaded Piper voice commercially, read the model card for that exact voice and its training dataset license. Some otherwise high-quality models restrict commercial use. This repository does not bundle voice-model weights, third-party music or fonts. The separately generated six-Reel demo used a basic synthetic fallback where neural weights were unavailable; it is not a claim that the computer had Piper installed.

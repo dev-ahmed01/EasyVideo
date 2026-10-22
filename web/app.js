@@ -162,10 +162,11 @@ function showStudio(){
  const list=[...chosen],canFinal=list.length>0&&list.every(id=>project.exports[id].preview);
  $("#view").innerHTML=head("03","Reel lab","The edit makes the difference.","Six distinct edits. Choose the three worth publishing.")+
  '<div class="panel"><div class="picker-row"><div><h2 class="panel-title">Soundtrack</h2><div class="voice-switch">'+
- '<button type="button" data-audio="generated" class="'+(audioMode==="generated"?"active":"")+'">New voiceover</button>'+
+ '<button type="button" data-audio="generated" class="'+(audioMode==="generated"?"active":"")+'">AI / offline voiceover</button>'+
  '<button type="button" data-audio="reference" class="'+(audioMode==="reference"?"active":"")+'" '+(!allowReference?"disabled":"")+'>Original Reel audio</button>'+
  '<button type="button" data-audio="uploaded" class="'+(audioMode==="uploaded"?"active":"")+'">My narration</button></div></div>'+
  '<div><span class="stat-pill">'+(audioMode==="reference"?"Existing audio":"Offline voice")+'</span></div></div>'+
+ (audioMode==="generated"?'<p class="help">Piper neural voice is used if configured. Windows speech is a basic fallback.</p>':'')+
  (audioMode==="uploaded"?'<div class="upload-area" style="margin-top:15px"><strong>Upload your voiceover</strong><p>Recording or licensed generated speech</p><label class="secondary" for="narration-upload">Choose audio ↑</label><input class="file-hidden" id="narration-upload" type="file" accept="audio/*,.m4a,.wav,.mp3"></div>'+
  (project.narration?'<audio class="reference-audio" controls src="'+escape(project.narration.audio_url)+'"></audio><p class="help">'+escape(project.narration.filename)+' · '+project.narration.duration.toFixed(1)+'s</p>':''):'' )+
  (audioMode==="reference"?'<div class="ranges"><label>Start <input class="input" id="audio-start" type="number" min="0" max="'+Math.max(0,ref.audio_seconds-8).toFixed(1)+'" step="0.5" value="'+audioStart+'"></label>'+
