@@ -15,6 +15,8 @@ from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadF
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from typing import Literal
+import subprocess
 
 from .creative import Brief, ROLES, STYLES, audit, creatives, required_shots
 from .render import probe, render_variant
@@ -32,11 +34,15 @@ class BriefInput(BaseModel):
     facts: str = Field(default="", max_length=450)
     call_to_action: str = Field(default="DM us for availability", max_length=180)
     script: str = Field(default="", max_length=1800)
+    source_mode: Literal["new", "remix"] = "new"
 
 class RenderInput(BaseModel):
     styles: list[str] = Field(min_length=1, max_length=5)
     resolution: str = "preview"
     voice_engine: str = "auto"
+    audio_source: Literal["generated", "reference"] = "generated"
+    reference_start: float = Field(default=0, ge=0, le=600)
+    reference_seconds: float = Field(default=18, ge=8, le=90)
 
 class SelectionInput(BaseModel):
     styles: list[str] = Field(default_factory=list, max_length=3)
@@ -80,6 +86,12 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             stored_name TEXT NOT NULL, role TEXT NOT NULL, width INTEGER NOT NULL,
             height INTEGER NOT NULL, duration REAL NOT NULL,
             FOREIGN KEY(project_id) REFERENCES projects(id));
+        CREATE TABLE IF NOT EXISTS reference_reels (
+            project_id TEXT PRIMARY KEY, filename TEXT NOT NULL,
+            stored_name TEXT NOT NULL, duration REAL NOT NULL,
+            width INTEGER NOT NULL, height INTEGER NOT NULL,
+            has_audio INTEGER NOT NULL, audio_seconds REAL NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id));
         CREATE TABLE IF NOT EXISTS performance (
             project_id TEXT NOT NULL, style TEXT NOT NULL,
             post_url TEXT NOT NULL DEFAULT '', views INTEGER NOT NULL DEFAULT 0,
@@ -102,6 +114,13 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
                 raise HTTPException(404, "Project not found")
             clips = [dict(x) for x in cx.execute(
                 "SELECT * FROM clips WHERE project_id=? ORDER BY rowid", (pid,)).fetchall()]
+            raw_reference = cx.execute(
+                "SELECT * FROM reference_reels WHERE project_id=?", (pid,)).fetchone()
+            reference = dict(raw_reference) if raw_reference else None
+            if reference:
+                reference.pop("stored_name")
+                reference["media_url"] = f"/api/projects/{pid}/reference/media"
+                reference["audio_url"] = f"/api/projects/{pid}/reference/audio" if reference["has_audio"] else None
         with db() as cx:
             metrics = {
                 row["style"]: {key: row[key] for key in row.keys() if key not in ("style", "project_id")}
@@ -121,7 +140,8 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             "shotlist": required_shots(brief), "creatives": creatives(brief),
             "clips": clips, "audit": audit(brief, clips),
             "job": {"status": p["job_status"], "message": p["job_message"]},
-            "selected": json.loads(p["selected"]), "exports": exports, "performance": metrics
+            "selected": json.loads(p["selected"]), "exports": exports,
+            "performance": metrics, "reference": reference
         }
 
     def update_status(pid: str, status: str, message: str):
@@ -240,7 +260,103 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             raise HTTPException(404, "Source file missing")
         return FileResponse(target, media_type="video/mp4")
 
-    def render_job(pid: str, styles: list[str], resolution: str, voice_engine: str):
+    def reference_file(pid: str) -> Path:
+        with db() as cx:
+            row = cx.execute("SELECT stored_name FROM reference_reels WHERE project_id=?", (pid,)).fetchone()
+        if not row:
+            raise HTTPException(404, "No original Reel uploaded")
+        target = root / pid / "references" / row["stored_name"]
+        if not target.is_file():
+            raise HTTPException(404, "Original Reel file missing")
+        return target
+
+    @app.post("/api/projects/{pid}/reference", status_code=201)
+    async def add_reference(pid: str, file: UploadFile = File(...)):
+        """Store the original Reel once; never call an external service."""
+        fetch_project(pid)
+        if render_lock.locked():
+            raise HTTPException(409, "Finish rendering before changing source footage")
+        name = Path(file.filename or "reel").name
+        ext = Path(name).suffix.lower()
+        if ext not in EXTENSIONS:
+            raise HTTPException(415, "Select a video file")
+        (root / pid / "references").mkdir(parents=True, exist_ok=True)
+        stored = f"{uuid.uuid4().hex}{ext}"
+        dest = root / pid / "references" / stored
+        size = 0
+        try:
+            with dest.open("wb") as output:
+                while part := await file.read(1024 * 1024):
+                    size += len(part)
+                    if size > MAX_UPLOAD:
+                        raise HTTPException(413, "Original Reel exceeds 250 MB")
+                    output.write(part)
+            if size == 0:
+                raise HTTPException(422, "Original Reel is empty")
+            info = probe(dest)
+            if info["duration"] < 1 or info["duration"] > 600:
+                raise HTTPException(422, "Original Reel must be between 1 second and 10 minutes")
+            audio_check = subprocess.run(
+                ["ffprobe", "-v", "error", "-select_streams", "a:0",
+                 "-show_entries", "stream=codec_name,duration", "-of", "json", str(dest)],
+                capture_output=True, text=True, timeout=20, check=True
+            )
+            streams = json.loads(audio_check.stdout).get("streams", [])
+            has_audio = bool(streams)
+            audio_seconds = float(streams[0].get("duration") or info["duration"]) if has_audio else 0.0
+            with db() as cx:
+                old = cx.execute(
+                    "SELECT stored_name FROM reference_reels WHERE project_id=?", (pid,)
+                ).fetchone()
+                cx.execute(
+                    """INSERT INTO reference_reels(
+                        project_id,filename,stored_name,duration,width,height,has_audio,audio_seconds
+                    ) VALUES(?,?,?,?,?,?,?,?)
+                    ON CONFLICT(project_id) DO UPDATE SET
+                    filename=excluded.filename, stored_name=excluded.stored_name,
+                    duration=excluded.duration, width=excluded.width,
+                    height=excluded.height, has_audio=excluded.has_audio,
+                    audio_seconds=excluded.audio_seconds""",
+                    (pid, name[:160], stored, info["duration"], info["width"],
+                     info["height"], int(has_audio), audio_seconds)
+                )
+            if old:
+                (root / pid / "references" / old["stored_name"]).unlink(missing_ok=True)
+            # Replacing a reference invalidates videos rendered with its older audio.
+            for rendered in (root / pid / "exports").glob("*.mp4") if (root / pid / "exports").is_dir() else []:
+                rendered.unlink(missing_ok=True)
+        except BaseException:
+            dest.unlink(missing_ok=True)
+            raise
+        finally:
+            await file.close()
+        return fetch_project(pid)
+
+    @app.get("/api/projects/{pid}/reference/media")
+    def view_reference(pid: str):
+        target = reference_file(pid)
+        return FileResponse(target, media_type={
+            ".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm"
+        }.get(target.suffix.lower(), "application/octet-stream"))
+
+    @app.get("/api/projects/{pid}/reference/audio")
+    def hear_reference(pid: str):
+        target = reference_file(pid)
+        project = fetch_project(pid)
+        if not project["reference"]["has_audio"]:
+            raise HTTPException(409, "This Reel has no audio track")
+        audio = root / pid / "references" / "extracted_audio.m4a"
+        if not audio.is_file() or audio.stat().st_mtime < target.stat().st_mtime:
+            command = ["ffmpeg", "-y", "-v", "error", "-i", str(target),
+                       "-vn", "-map", "0:a:0", "-c:a", "aac", "-b:a", "112k",
+                       str(audio)]
+            p = subprocess.run(command, capture_output=True, text=True, timeout=120)
+            if p.returncode:
+                raise HTTPException(422, "Couldn't extract the original audio")
+        return FileResponse(audio, media_type="audio/mp4")
+
+    def render_job(pid: str, styles: list[str], resolution: str, voice_engine: str,
+                   audio_source: str, reference_start: float, reference_seconds: float):
         try:
             update_status(pid, "running", "Starting the render queue")
             data = fetch_project(pid)
@@ -248,8 +364,11 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             for index, style in enumerate(styles):
                 def show(message: str, i=index):
                     update_status(pid, "running", f"{i+1}/{len(styles)} · {message}")
+                reference_path = reference_file(pid) if audio_source == "reference" else None
                 render_variant(brief, data["clips"], style, root / pid, resolution,
-                               voice_engine, progress=show)
+                               voice_engine, progress=show, reference_video=reference_path,
+                               reference_start=reference_start,
+                               reference_seconds=reference_seconds)
             update_status(pid, "ready", f"{len(styles)} {resolution} Reel(s) ready")
         except Exception as exc:
             update_status(pid, "error", str(exc)[:1000])
@@ -266,21 +385,30 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             raise HTTPException(422, "Invalid resolution")
         if len(set(payload.styles)) != len(payload.styles) or any(x not in STYLES for x in payload.styles):
             raise HTTPException(422, "Choose unique valid Reel styles")
-        if payload.voice_engine != "auto" and payload.voice_engine not in engines():
-            raise HTTPException(422, "Voice provider is unavailable")
-        if not engines():
-            raise HTTPException(409, "Install Piper, or use Windows SAPI / eSpeak for offline voiceovers.")
+        if payload.audio_source == "reference":
+            if not data["reference"] or not data["reference"]["has_audio"]:
+                raise HTTPException(409, "Upload an existing Reel that contains audio first")
+            if payload.reference_start + payload.reference_seconds > data["reference"]["audio_seconds"] + 0.1:
+                raise HTTPException(422, "Selected original audio range exceeds available audio")
+        else:
+            if payload.voice_engine != "auto" and payload.voice_engine not in engines():
+                raise HTTPException(422, "Voice provider is unavailable")
+            if not engines():
+                raise HTTPException(409, "Install Piper, or use Windows SAPI / eSpeak for offline voiceovers.")
         if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
             raise HTTPException(409, "FFmpeg and FFprobe are required.")
         if not render_lock.acquire(blocking=False):
             raise HTTPException(409, "A video render is already running")
         try:
             update_status(pid, "queued", f"Queued {len(payload.styles)} styles")
-            background.add_task(render_job, pid, payload.styles, payload.resolution, payload.voice_engine)
+            background.add_task(render_job, pid, payload.styles, payload.resolution,
+                                payload.voice_engine, payload.audio_source,
+                                payload.reference_start, payload.reference_seconds)
         except Exception:
             render_lock.release()
             raise
-        return {"status": "queued", "styles": payload.styles, "resolution": payload.resolution}
+        return {"status": "queued", "styles": payload.styles,
+                "resolution": payload.resolution, "audio_source": payload.audio_source}
 
     @app.post("/api/projects/{pid}/selection")
     def select(pid: str, payload: SelectionInput):

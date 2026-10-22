@@ -29,6 +29,7 @@ class Brief:
     facts: str = ""
     call_to_action: str = "DM us for availability"
     script: str = ""
+    source_mode: str = "new"
 
 def clean(value: str, limit: int = 240) -> str:
     value = re.sub(r"\s+", " ", (value or "")).strip()

@@ -59,25 +59,26 @@ def _effects(style: str, idx: int, width: int, height: int, duration: float, tex
             f"crop={width}:{height},setsar=1,format=yuv420p,"
             "eq=contrast=1.04:saturation=1.08")
     # Typography and rhythm vary by format; all filters are CPU-only.
+    # Keep added titles at the top: source Reels can already contain lower thirds.
     if style == "stomp":
-        size, y, opacity = 60, "h*0.69+68*exp(-14*t)", "0.62"
+        size, y, opacity, color = 58, "h*0.17+68*exp(-14*t)", "0.57", "0xd6f39b"
     elif style == "cinematic":
-        size, y, opacity = 42, "h*0.79+22*exp(-2*t)", "0.39"
+        size, y, opacity, color = 41, "h*0.18+22*exp(-2*t)", "0.37", "0xf5e8d2"
     elif style == "features":
-        size, y, opacity = 46, "h*0.73+25*exp(-9*t)", "0.53"
+        size, y, opacity, color = 45, "h*0.17+25*exp(-9*t)", "0.46", "0x9fe5d7"
     elif style == "business":
-        size, y, opacity = 44, "h*0.76+28*exp(-6*t)", "0.48"
+        size, y, opacity, color = 43, "h*0.17+28*exp(-6*t)", "0.44", "0xf4dfa5"
     else:
-        size, y, opacity = 53, "h*0.70+43*exp(-13*t)", "0.55"
+        size, y, opacity, color = 50, "h*0.16+43*exp(-13*t)", "0.45", "0xf2c6e9"
     size = max(24, round(size * width / 540))
-    base += f",drawbox=x=0:y=ih*0.64:w=iw:h=ih*0.36:color=black@{opacity}:t=fill"
+    base += f",drawbox=x=0:y=ih*0.07:w=iw:h=ih*0.29:color=black@{opacity}:t=fill"
     if style == "stomp":
-        base += ",drawbox=x=0:y=ih*0.95:w=iw:h=8:color=0xd5ff56@0.9:t=fill"
+        base += ",drawbox=x=0:y=ih*0.37:w=iw:h=7:color=0xd5ff56@0.9:t=fill"
     elif style == "features":
-        base += ",drawbox=x=iw*0.07:y=ih*0.66:w=iw*0.14:h=5:color=0x8fe0da@0.9:t=fill"
+        base += ",drawbox=x=iw*0.07:y=ih*0.36:w=iw*0.14:h=5:color=0x8fe0da@0.9:t=fill"
     elif style == "business":
-        base += ",drawbox=x=iw*0.07:y=ih*0.66:w=iw*0.14:h=5:color=0xe3b873@0.9:t=fill"
-    base += "," + _drawtext(text_path, size, "white", y)
+        base += ",drawbox=x=iw*0.07:y=ih*0.36:w=iw*0.14:h=5:color=0xe3b873@0.9:t=fill"
+    base += "," + _drawtext(text_path, size, color, y)
     if style == "cinematic":
         base += f",fade=t=in:st=0:d=0.23,fade=t=out:st={max(0.2, duration-0.2):.2f}:d=0.2"
     return base
@@ -113,7 +114,10 @@ def _clip_for(role: str, clips: list[dict], used: dict[str, int]) -> dict:
 
 def render_variant(brief: Brief, clips: list[dict], style: str, project_dir: Path,
                    resolution: str = "preview", voice_engine: str = "auto",
-                   progress: Callable[[str], None] | None = None) -> Path:
+                   progress: Callable[[str], None] | None = None,
+                   reference_video: Path | None = None,
+                   reference_start: float = 0,
+                   reference_seconds: float = 18) -> Path:
     if style not in STYLES:
         raise ValueError(f"Unknown style: {style}")
     if resolution not in ("preview", "final"):
@@ -128,8 +132,16 @@ def render_variant(brief: Brief, clips: list[dict], style: str, project_dir: Pat
     work = project_dir / "work" / f"{style}_{resolution}"
     work.mkdir(parents=True, exist_ok=True)
     voice_path = work / "voice.wav"
-    if progress: progress("Generating offline voiceover")
-    engine = synthesize(plan["voiceover"], voice_path, preferred=voice_engine)
+    if reference_video is not None:
+        if progress: progress("Bringing in audio from the existing Reel")
+        _run(["ffmpeg", "-y", "-v", "error", "-ss", str(reference_start),
+              "-i", str(reference_video), "-t", str(reference_seconds),
+              "-map", "0:a:0", "-vn", "-ac", "1", "-ar", "16000", "-c:a",
+              "pcm_s16le", str(voice_path)], timeout=120)
+        engine = "original Reel audio"
+    else:
+        if progress: progress("Generating offline voiceover")
+        engine = synthesize(plan["voiceover"], voice_path, preferred=voice_engine)
     voice_seconds = probe_audio(voice_path)
     target = max(sum(base_seconds), voice_seconds + 0.9)
     # Narration is never silently cut short. A long user script can yield a longer reel.
