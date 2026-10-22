@@ -110,3 +110,7 @@ Minimal three-screen workflow: Direction, Footage, Reel Lab. Two type families: 
 ## Pick visual moments from an old Reel
 
 While reviewing the original Reel in **Footage**, enter a timestamp, duration and the actual visual role, then choose **Add selected moment**. EasyVideo extracts a new editable clip with FFmpeg. Repeat for hero, details, workspace or stock shots, then create the five Reel variants with that footage and either the original audio or a new offline voiceover. The app never pretends to recognize shot semantics: the user decides what the extracted scene shows.
+
+## Director v2 and narration
+
+Six styles now use 7–9 short clips, detected letterbox removal with blurred real-footage fills, clear upper-third typography, and percussive sound accents. Pick the original soundtrack, a separately uploaded narration, or a locally synthesized voice. For better neural speech on an 8 GB CPU computer, install Piper and a correctly licensed voice model; Windows SAPI remains a basic fallback. The Reel Lab keeps the new sixth Voice Story format. No guaranteed social reach is claimed.

@@ -5,7 +5,7 @@ const $=s=>document.querySelector(s);
 const $$=s=>Array.from(document.querySelectorAll(s));
 const escape=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const roles={hero:"Full chair",detail:"Close-up",function:"Feature demo",workspace:"Desk / workspace",inventory:"Multiple chairs",proof:"Showroom / proof"};
-const styleIds=["stomp","cinematic","features","business","social"];
+const styleIds=["stomp","cinematic","features","business","social","voice_story"];
 let project=null,stage=1,mode="new",audioMode="generated",audioStart=0,audioLength=18,chosen=new Set(),health=null,timer=null;
 function toast(message){const box=$("#toast");box.textContent=message;box.classList.add("show");setTimeout(()=>box.classList.remove("show"),4500);}
 async function api(path,method="GET",body){
@@ -30,7 +30,7 @@ function newProject(){
 }
 function briefValues(){
  return {source_mode:mode,intent:$("#intent").value.trim(),audience:$("#audience").value.trim(),
- product:$("#product").value.trim(),offer:$("#offer").value.trim(),facts:$("#facts").value.trim(),
+ product:$("#product").value.trim(),brand_name:$("#brand-name").value.trim(),offer:$("#offer").value.trim(),facts:$("#facts").value.trim(),
  call_to_action:$("#cta").value.trim(),script:$("#script").value.trim()};
 }
 function showDirection(){
@@ -44,13 +44,14 @@ function showDirection(){
  '<div class="field-grid"><div><label class="field-title" for="audience">Audience</label><input id="audience" class="input" value="Office and home-workspace buyers"></div>'+
  '<div><label class="field-title" for="product">Product</label><input id="product" class="input" value="Ergonomic office chair"></div></div>'+
  '<details class="detail-expand"><summary>Script & campaign details +</summary>'+
+ '<label class="field-title" for="brand-name">Brand name</label><input id="brand-name" class="input" value="Furnihub Interiors">'+
  '<label class="field-title" for="script">ChatGPT script (optional)</label><textarea id="script" class="input" placeholder="Paste a voiceover script"></textarea>'+
  '<label class="field-title" for="offer">Stock / offer</label><input id="offer" class="input" placeholder="Available today · bulk orders welcome">'+
  '<label class="field-title" for="facts">Verified features</label><input id="facts" class="input" placeholder="Mesh back · adjustable arms, if true">'+
  '<label class="field-title" for="cta">Call to action</label><input id="cta" class="input" value="DM us for availability"></details>'+
  '<div class="btn-row"><button class="primary" id="create-project">Plan my Reel →</button></div></div></div>'+
  '<div class="panel"><div class="preview-stage"><div class="mock-phone"><span>MAKE<br>IT<br>MOVE.</span></div><div class="mock-phone second"><span>MORE<br>THAN<br>AN AD.</span></div></div>'+
- '<h3 class="aside-phrase">Five directions.<br>One clear goal.</h3><p class="aside-note">Cinematic · STOMP · Product story · Office · Social</p>'+
+ '<h3 class="aside-phrase">Six directions.<br>One clear goal.</h3><p class="aside-note">Cinematic · STOMP · Product story · Office · Social</p>'+
  '<div class="stat-strip"><span class="stat-pill">9:16</span><span class="stat-pill">No GPU</span><span class="stat-pill">Local</span></div></div></div>';
  $$("[data-mode]").forEach(b=>b.onclick=()=>{mode=b.dataset.mode;$$("[data-mode]").forEach(x=>x.classList.toggle("selected",x.dataset.mode===mode));});
  $("#create-project").onclick=async()=>{
@@ -159,22 +160,32 @@ function showStudio(){
  const allowReference=!!ref&&!!ref.has_audio&&ref.audio_seconds>=8;
  const previews=styleIds.every(id=>!!project.exports[id].preview);
  const list=[...chosen],canFinal=list.length>0&&list.every(id=>project.exports[id].preview);
- $("#view").innerHTML=head("03","Reel lab","The edit makes the difference.","Five distinct directions. Pick the three worth publishing.")+
+ $("#view").innerHTML=head("03","Reel lab","The edit makes the difference.","Six distinct edits. Choose the three worth publishing.")+
  '<div class="panel"><div class="picker-row"><div><h2 class="panel-title">Soundtrack</h2><div class="voice-switch">'+
  '<button type="button" data-audio="generated" class="'+(audioMode==="generated"?"active":"")+'">New voiceover</button>'+
- '<button type="button" data-audio="reference" class="'+(audioMode==="reference"?"active":"")+'" '+(!allowReference?"disabled":"")+'>Original Reel audio</button></div></div>'+
+ '<button type="button" data-audio="reference" class="'+(audioMode==="reference"?"active":"")+'" '+(!allowReference?"disabled":"")+'>Original Reel audio</button>'+
+ '<button type="button" data-audio="uploaded" class="'+(audioMode==="uploaded"?"active":"")+'">My narration</button></div></div>'+
  '<div><span class="stat-pill">'+(audioMode==="reference"?"Existing audio":"Offline voice")+'</span></div></div>'+
+ (audioMode==="uploaded"?'<div class="upload-area" style="margin-top:15px"><strong>Upload your voiceover</strong><p>Recording or licensed generated speech</p><label class="secondary" for="narration-upload">Choose audio ↑</label><input class="file-hidden" id="narration-upload" type="file" accept="audio/*,.m4a,.wav,.mp3"></div>'+
+ (project.narration?'<audio class="reference-audio" controls src="'+escape(project.narration.audio_url)+'"></audio><p class="help">'+escape(project.narration.filename)+' · '+project.narration.duration.toFixed(1)+'s</p>':''):'' )+
  (audioMode==="reference"?'<div class="ranges"><label>Start <input class="input" id="audio-start" type="number" min="0" max="'+Math.max(0,ref.audio_seconds-8).toFixed(1)+'" step="0.5" value="'+audioStart+'"></label>'+
  '<label>Seconds <input class="input" id="audio-length" type="number" min="8" max="90" step="0.5" value="'+audioLength+'"></label>'+
  '<span class="help">'+ref.audio_seconds.toFixed(1)+'s available</span></div>'+
  '<p class="help">The complete original audio mix is used; background music is not separated from speech.</p>':"")+'</div>'+
  (busy?'<div class="progress"><strong>Rendering on this computer</strong><span id="live-progress">'+escape(project.job.message)+'</span></div>':project.job.status==="error"?'<div class="flag">'+escape(project.job.message)+'</div>':"")+
  '<div class="reel-grid">'+project.creatives.map(reelCard).join("")+'</div>'+
- '<div class="btn-row"><button class="primary" id="generate-five" '+(busy?"disabled":"")+'>'+(previews?"↻ Regenerate five":"✦ Generate five drafts")+'</button>'+
+ '<div class="btn-row"><button class="primary" id="generate-five" '+(busy?"disabled":"")+'>'+(previews?"↻ Regenerate six":"✦ Generate six drafts")+'</button>'+
  '<button class="secondary" id="final-export" '+(!canFinal||busy?"disabled":"")+'>Export selected · '+list.length+'/3 →</button></div>'+
  '<p class="footnote">Preview at 540p · Final export at 1080p. Three choices maximum.</p>'+
  metricsUI();
- $$("[data-audio]").forEach(b=>b.onclick=()=>{if(b.disabled)return;audioMode=b.dataset.audio;render();});
+ $("[data-audio]").forEach(b=>b.onclick=()=>{if(b.disabled)return;audioMode=b.dataset.audio;render();});
+ const uploadNarration=$("#narration-upload");
+ if(uploadNarration)uploadNarration.onchange=async()=>{
+    if(!uploadNarration.files.length)return;
+    const form=new FormData();form.append("file",uploadNarration.files[0]);
+    try{project=await api("/api/projects/"+project.id+"/narration","POST",form);render();toast("Narration uploaded");}
+    catch(e){toast(e.message);}
+ };
  if(audioMode==="reference"){
    $("#audio-start").onchange=e=>audioStart=Math.max(0,Number(e.target.value)||0);
    $("#audio-length").onchange=e=>audioLength=Math.max(8,Number(e.target.value)||18);
@@ -201,6 +212,7 @@ function showStudio(){
  if(busy)poll();else stopPoll();
 }
 async function beginRender(styles,resolution){
+ if(audioMode==="uploaded"&&!project.narration){toast("Upload a narration track first");return;}
  if(audioMode==="reference"){
   const limit=project.reference?.audio_seconds||0;
   if(audioStart+audioLength>limit+0.1){toast("Audio range exceeds original Reel duration");return;}
