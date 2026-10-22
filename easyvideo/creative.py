@@ -18,6 +18,7 @@ STYLES = {
     "features": {"title": "Smart buyer", "subtitle": "Useful, save-worthy office chair tips", "seconds": [2.6, 3.6, 3.6, 3.2], "roles": ["hero", "function", "detail", "hero"], "colors": ["#163b43", "#8fe0da"]},
     "business": {"title": "Office solutions", "subtitle": "A practical, trust-first B2B story", "seconds": [3.2, 3.1, 3.6, 3.4], "roles": ["workspace", "inventory", "detail", "hero"], "colors": ["#192b47", "#e3b873"]},
     "social": {"title": "Social-native", "subtitle": "Conversational hook and short beats", "seconds": [1.8, 3.2, 2.9, 3.2], "roles": ["hero", "detail", "workspace", "hero"], "colors": ["#392754", "#e6b1ff"]},
+    "voice_story": {"title": "Voice Story", "subtitle": "Narrated product story", "seconds": [2.5, 2.5, 2.5, 2.5], "roles": ["hero", "detail", "workspace", "hero"], "colors": ["#193e2b", "#dff7c3"]},
 }
 
 @dataclass
@@ -30,6 +31,7 @@ class Brief:
     call_to_action: str = "DM us for availability"
     script: str = ""
     source_mode: str = "new"
+    brand_name: str = ""
 
 def clean(value: str, limit: int = 240) -> str:
     value = re.sub(r"\s+", " ", (value or "")).strip()
@@ -84,6 +86,8 @@ def creatives(brief: Brief) -> list[dict]:
          f"Planning seating for a workspace? Explore {product} options for your office. {offerline} {cta}."),
         ("social", [opener, "HERE IS A CLOSER LOOK", "YOUR WORKSPACE, SORTED", "MESSAGE US"],
          f"Quick question. Is your current office chair working for your setup? Here's {product}. {factline} {cta}."),
+        ("voice_story", ["MEET THE CHAIR", "REAL DETAILS", "WORKSPACE READY", "ENQUIRE TODAY"],
+         f"Looking for seating for your workspace? Explore this {product}. See the details up close and check the current options. {cta}."),
     ]
     result = []
     for key, beats, voice in data:
@@ -99,6 +103,7 @@ def creatives(brief: Brief) -> list[dict]:
                     "cinematic": "A closer look at the details.",
                     "business": "Planning your workplace?",
                     "social": "Here's a quick look.",
+                    "voice_story": "Let's show you the details.",
                 }[key]
                 voice = _trim_words(f"{opening} {_trim_words(brief.script, 32)} {cta}.")
         result.append({
@@ -117,6 +122,7 @@ def creatives(brief: Brief) -> list[dict]:
                 "features": "Saves and buying confidence",
                 "business": "Office/bulk sales enquiries",
                 "social": "Natural discovery and DMs",
+                "voice_story": "Narrated product confidence and enquiries",
             }[key]
         })
     return result

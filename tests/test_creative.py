@@ -3,9 +3,9 @@ from easyvideo.creative import Brief, STYLES, audit, creatives, required_shots
 def test_five_distinct_marketing_ideas():
     brief = Brief(intent="Generate organic office chair enquiries", product="Office chair", facts="Breathable mesh", offer="Stock available")
     ideas = creatives(brief)
-    assert len(ideas) == 5
+    assert len(ideas) == 6
     assert {idea["id"] for idea in ideas} == set(STYLES)
-    assert len({idea["beats"][0] for idea in ideas}) == 5
+    assert len({idea["beats"][0] for idea in ideas}) == 6
     assert all(idea["voiceover"] and len(idea["beats"]) == 4 for idea in ideas)
 
 def test_pasted_script_remains_in_feature_narration():
@@ -38,7 +38,7 @@ def test_file_warning_detects_landscape_and_low_resolution():
 def test_caption_and_cover_available_for_each_reel():
     results=creatives(Brief(intent="Promote a chair to buyers",product="Office chair"))
     assert all(len(row["caption"])>20 and row["cover_title"] for row in results)
-    assert len({row["marketing_goal"] for row in results})==5
+    assert len({row["marketing_goal"] for row in results})==6
 
 def test_campaign_hooks_depend_on_audience():
     business=creatives(Brief(intent="Office chairs for bulk startup office furnishing"))
