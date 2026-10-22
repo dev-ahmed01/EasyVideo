@@ -179,7 +179,7 @@ function showStudio(){
  '<button class="secondary" id="final-export" '+(!canFinal||busy?"disabled":"")+'>Export selected · '+list.length+'/3 →</button></div>'+
  '<p class="footnote">Preview at 540p · Final export at 1080p. Three choices maximum.</p>'+
  metricsUI();
- $("[data-audio]").forEach(b=>b.onclick=()=>{if(b.disabled)return;audioMode=b.dataset.audio;render();});
+ $$("[data-audio]").forEach(b=>b.onclick=()=>{if(b.disabled)return;audioMode=b.dataset.audio;render();});
  const uploadNarration=$("#narration-upload");
  if(uploadNarration)uploadNarration.onchange=async()=>{
     if(!uploadNarration.files.length)return;
