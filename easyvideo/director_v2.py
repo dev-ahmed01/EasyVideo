@@ -17,7 +17,7 @@ STYLE_SHOTS = {
  "stomp": (["hero","detail","hero","workspace","function","inventory","detail","hero","proof"],[1.2,1.2,1.4,1.3,1.25,1.5,1.15,1.3,1.5]),
  "cinematic": (["hero","detail","hero","workspace","detail","inventory","hero"],[2.6,2.4,2.8,2.4,2.3,2.4,2.8]),
  "features": (["hero","function","detail","hero","workspace","detail","hero","proof"],[2.1,2.0,2.1,2.0,2.3,2.0,2.0,2.0]),
- "business": (["workspace","inventory","hero","inventory","workspace","hero","proof","hero"],[2.2,2.1,2.0,2.1,2.0,2.2,2.0,2.1]),
+ "business": (["office_context","inventory","hero","detail","workspace","inventory","hero","hero"],[2.2,2.1,2.0,2.1,2.0,2.2,2.0,2.1]),
  "social": (["hero","detail","workspace","hero","detail","inventory","hero","proof","hero"],[1.5,1.25,1.45,1.35,1.3,1.55,1.3,1.25,1.7]),
  "voice_story": (["hero","detail","workspace","hero","inventory","detail","hero","proof"],[2.6,2.0,2.3,2.3,2.3,1.8,2.3,2.2]),
 }
@@ -190,8 +190,13 @@ def _scene_changes(path_text: str) -> tuple[float, ...]:
         return ()
 
 def _choose(role, clips, used, index, style):
-    options=[x for x in clips if x["role"]==role and x.get("duration",0)>=1]
-    if not options: options=[x for x in clips if x["role"]=="hero"] or clips
+    real_only={"hero","detail","function","inventory","proof"}
+    options=[x for x in clips if x["role"]==role and x.get("duration",0)>=1
+             and (role not in real_only or x.get("source_type","real")=="real")]
+    if not options and role=="office_context":
+        options=[x for x in clips if x["role"]=="workspace" and x.get("source_type","real")=="real"]
+    if not options:
+        options=[x for x in clips if x["role"]=="hero" and x.get("source_type","real")=="real"] or clips
     if not options:raise RuntimeError("No usable clips")
     n=used.get(role,0);used[role]=n+1
     return options[(n+(index if style=="social" else 0))%len(options)],n

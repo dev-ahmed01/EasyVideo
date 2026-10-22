@@ -53,6 +53,8 @@ class SelectionInput(BaseModel):
 class ClipRoleInput(BaseModel):
     role: str
 
+STOCK_ALLOWED_ROLES = {"office_context", "workspace"}
+
 class ReferenceSegmentInput(BaseModel):
     role: str
     start: float = Field(ge=0, le=600)
@@ -93,6 +95,7 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             id TEXT PRIMARY KEY, project_id TEXT NOT NULL, filename TEXT NOT NULL,
             stored_name TEXT NOT NULL, role TEXT NOT NULL, width INTEGER NOT NULL,
             height INTEGER NOT NULL, duration REAL NOT NULL,
+            source_type TEXT NOT NULL DEFAULT 'real',
             FOREIGN KEY(project_id) REFERENCES projects(id));
         CREATE TABLE IF NOT EXISTS uploaded_narrations (
             project_id TEXT PRIMARY KEY, filename TEXT NOT NULL, duration REAL NOT NULL);
@@ -113,6 +116,11 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
         UPDATE projects SET job_status='error',job_message='Interrupted by application restart'
             WHERE job_status IN ('queued','running');
         """)
+    # Preserve existing projects when introducing source provenance.
+    with db() as cx:
+        columns = {row["name"] for row in cx.execute("PRAGMA table_info(clips)").fetchall()}
+        if "source_type" not in columns:
+            cx.execute("ALTER TABLE clips ADD COLUMN source_type TEXT NOT NULL DEFAULT 'real'")
     app = FastAPI(title="EasyVideo", version="0.1.0",
                   description="Offline-first marketing-led Instagram Reel studio")
     app.mount("/assets", StaticFiles(directory=str(HERE / "web")), name="assets")
@@ -208,10 +216,13 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
         return fetch_project(pid)
 
     @app.post("/api/projects/{pid}/clips", status_code=201)
-    async def upload_clip(pid: str, file: UploadFile = File(...), role: str = Form(...)):
+    async def upload_clip(pid: str, file: UploadFile = File(...), role: str = Form(...),
+                          source_type: Literal["real", "stock"] = Form("real")):
         fetch_project(pid)
         if role not in ROLES:
             raise HTTPException(422, "Select a valid shot role")
+        if source_type == "stock" and role not in STOCK_ALLOWED_ROLES:
+            raise HTTPException(422, "Stock clips may illustrate an office, but cannot serve as real product, inventory, functionality or customer proof.")
         name = Path(file.filename or "clip").name
         ext = Path(name).suffix.lower()
         if ext not in EXTENSIONS:
@@ -236,9 +247,11 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
             if info["duration"] < 1 or info["duration"] > 1200:
                 raise HTTPException(422, "Clip must be between 1 second and 20 minutes")
             with db() as cx:
-                cx.execute("INSERT INTO clips VALUES(?,?,?,?,?,?,?,?)",
+                cx.execute("""INSERT INTO clips
+                    (id,project_id,filename,stored_name,role,width,height,duration,source_type)
+                    VALUES(?,?,?,?,?,?,?,?,?)""",
                            (cid, pid, name[:160], stored, role, info["width"],
-                            info["height"], info["duration"]))
+                            info["height"], info["duration"], source_type))
         except BaseException:
             dest.unlink(missing_ok=True)
             raise
@@ -253,6 +266,10 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
         if payload.role not in ROLES:
             raise HTTPException(422, "Invalid shot role")
         with db() as cx:
+            item = cx.execute("SELECT source_type FROM clips WHERE project_id=? AND id=?",
+                              (pid, cid)).fetchone()
+            if item and item["source_type"] == "stock" and payload.role not in STOCK_ALLOWED_ROLES:
+                raise HTTPException(422, "Illustrative stock cannot become inventory, product or installation proof.")
             cur = cx.execute("UPDATE clips SET role=? WHERE project_id=? AND id=?",
                              (payload.role, pid, cid))
             if cur.rowcount != 1:
@@ -414,9 +431,11 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
                 raise HTTPException(422, "Could not extract a usable shot")
             display = f"Original Reel {payload.start:.1f}s–{payload.start + payload.duration:.1f}s"
             with db() as cx:
-                cx.execute("INSERT INTO clips VALUES(?,?,?,?,?,?,?,?)",
+                cx.execute("""INSERT INTO clips
+                    (id,project_id,filename,stored_name,role,width,height,duration,source_type)
+                    VALUES(?,?,?,?,?,?,?,?,?)""",
                            (cid, pid, display, stored, payload.role,
-                            info["width"], info["height"], info["duration"]))
+                            info["width"], info["height"], info["duration"], "real"))
         except BaseException:
             dest.unlink(missing_ok=True)
             raise
