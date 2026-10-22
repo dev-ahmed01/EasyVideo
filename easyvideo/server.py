@@ -21,6 +21,7 @@ import subprocess
 from .creative import Brief, ROLES, STYLES, audit, creatives, required_shots
 from .render import probe, render_variant
 from .voice import engines
+from .marketing import social_assets
 
 HERE = Path(__file__).resolve().parent.parent
 EXTENSIONS = {".mp4", ".mov", ".m4v", ".webm", ".mkv"}
@@ -36,6 +37,7 @@ class BriefInput(BaseModel):
     script: str = Field(default="", max_length=1800)
     source_mode: Literal["new", "remix"] = "new"
     brand_name: str = Field(default="", max_length=90)
+    location: str = Field(default="", max_length=100)
 
 class RenderInput(BaseModel):
     styles: list[str] = Field(min_length=1, max_length=6)
@@ -150,6 +152,7 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
         return {
             "id": pid, "created_at": p["created_at"], "brief": brief_data,
             "shotlist": required_shots(brief), "creatives": creatives(brief),
+            "social_pack": {style: social_assets(brief, style) for style in STYLES},
             "clips": clips, "audit": audit(brief, clips),
             "job": {"status": p["job_status"], "message": p["job_message"]},
             "selected": json.loads(p["selected"]), "exports": exports,
@@ -180,6 +183,7 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
     def plan(payload: BriefInput):
         brief = Brief(**payload.model_dump())
         return {"shotlist": required_shots(brief), "creatives": creatives(brief),
+                "social_pack": {style: social_assets(brief, style) for style in STYLES},
                 "strategy": "Distinct hooks, pacing and editing approaches. Clip roles are user-confirmed; no invented product claims."}
 
     @app.post("/api/projects", status_code=201)
