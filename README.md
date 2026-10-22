@@ -122,3 +122,7 @@ Before using a downloaded Piper voice commercially, read the model card for that
 ### Performance and browser safeguards
 
 Scene cuts are cached once per source during each sequential export, saving repeated scene analysis on CPU-only laptops. The Reel Lab soundtrack selector is covered by a lightweight UI source-contract test in addition to JavaScript syntax checking. These checks do not replace visual browser QA.
+
+## Better local neural voice on Windows
+
+For a more natural Voice Story, run **setup-voice-windows.bat** once. It presents an explicit approval prompt, installs the pinned CPU-compatible Piper engine in the local virtual environment, downloads a roughly 64 MB English voice with its JSON and model card from the official voice repository, verifies the ONNX SHA-256, and tests speech locally. On subsequent launches, EasyVideo detects the model under `models/piper/` and prioritizes it over Windows SAPI. Downloads happen during setup only, not when rendering Reels. **Check the model's separate rights and attribution requirements before commercial use.** The generated audio stays local; no API key or GPU is required. Piper software is GPL-3.0.
