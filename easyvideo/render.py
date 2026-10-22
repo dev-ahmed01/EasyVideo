@@ -113,7 +113,10 @@ def _clip_for(role: str, clips: list[dict], used: dict[str, int]) -> dict:
 
 def render_variant(brief: Brief, clips: list[dict], style: str, project_dir: Path,
                    resolution: str = "preview", voice_engine: str = "auto",
-                   progress: Callable[[str], None] | None = None) -> Path:
+                   progress: Callable[[str], None] | None = None,
+                   reference_video: Path | None = None,
+                   reference_start: float = 0,
+                   reference_seconds: float = 18) -> Path:
     if style not in STYLES:
         raise ValueError(f"Unknown style: {style}")
     if resolution not in ("preview", "final"):
@@ -128,8 +131,16 @@ def render_variant(brief: Brief, clips: list[dict], style: str, project_dir: Pat
     work = project_dir / "work" / f"{style}_{resolution}"
     work.mkdir(parents=True, exist_ok=True)
     voice_path = work / "voice.wav"
-    if progress: progress("Generating offline voiceover")
-    engine = synthesize(plan["voiceover"], voice_path, preferred=voice_engine)
+    if reference_video is not None:
+        if progress: progress("Bringing in audio from the existing Reel")
+        _run(["ffmpeg", "-y", "-v", "error", "-ss", str(reference_start),
+              "-i", str(reference_video), "-t", str(reference_seconds),
+              "-map", "0:a:0", "-vn", "-ac", "1", "-ar", "16000", "-c:a",
+              "pcm_s16le", str(voice_path)], timeout=120)
+        engine = "original Reel audio"
+    else:
+        if progress: progress("Generating offline voiceover")
+        engine = synthesize(plan["voiceover"], voice_path, preferred=voice_engine)
     voice_seconds = probe_audio(voice_path)
     target = max(sum(base_seconds), voice_seconds + 0.9)
     # Narration is never silently cut short. A long user script can yield a longer reel.
