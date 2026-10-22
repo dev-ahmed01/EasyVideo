@@ -209,7 +209,7 @@ def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
     elif target<total:
         factor=target/total
         durations=[max(0.9,round(d*factor,3)) for d in durations]
-    used={};pieces=[]
+    used={};pieces=[];scene_cache={}
     title_positions={0:0,2:1,4:2,len(durations)-1:3}
     for index,(role,duration) in enumerate(zip(roles,durations)):
         clip,count=_choose(role,clips,used,index,style)
@@ -218,7 +218,10 @@ def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
         # Move through longer clips, reusing time points instead of freezing four long blocks.
         room=max(0,clip["duration"]-duration)
         frac=((index*0.17+count*.28+(0.12 if style=="cinematic" else 0))%0.86)
-        boundaries=[t for t in _scene_changes(str(src)) if 0.25 <= t <= room]
+        cache_key=str(src.resolve())
+        if cache_key not in scene_cache:
+            scene_cache[cache_key]=_scene_changes(cache_key)
+        boundaries=[t for t in scene_cache[cache_key] if 0.25 <= t <= room]
         # Cycle scene boundaries when one long clip contains multiple camera shots.
         start=round(boundaries[(index+count)%len(boundaries)] if len(boundaries)>=2 else room*frac,2)
         title=plan["beats"][title_positions[index]] if index in title_positions else ""

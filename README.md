@@ -124,3 +124,7 @@ Before using a downloaded Piper voice commercially, read the model card for that
 Double-click setup-ai-voice-windows.bat before starting the studio. It installs Piper in the local Python virtual environment and downloads one LibriTTS high-quality English voice and configuration to the ignored voices directory (about 137 MB). Then restart start-windows.bat; the launcher configures the model and female speaker 676 automatically. On an 8 GB CPU-only laptop, synthesis is local, with no API usage after installation.
 
 Voice dataset: LibriTTS (OpenSLR 60), CC BY 4.0. Attribution should accompany commercial use; see the official model card at https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/libritts/high/MODEL_CARD. The neural model is an optional download, not bundled in the repository or earlier demo videos.
+
+### Speech compatibility and Reel Lab safeguard
+
+The optional Piper installer and selected LibriTTS voice now use the current `python -m piper` CLI for synthesis. The configured speaker index is respected, and a legacy binary remains supported. Scene boundaries are cached per original clip during each render to reduce repeated CPU analysis, and the three soundtrack buttons are bound correctly in the browser. Unit/contract tests cover these paths.
