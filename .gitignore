@@ -8,3 +8,5 @@ __pycache__/
 easyvideo-data/
 *.wav
 .DS_Store
+
+voices/

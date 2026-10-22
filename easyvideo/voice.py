@@ -38,7 +38,10 @@ def synthesize(text: str, output: Path, preferred: str = "auto") -> str:
     if engine == "piper":
         cmd = ["piper", "--model", os.environ["EASYVIDEO_PIPER_MODEL"],
                "--output_file", str(output)]
-        subprocess.run(cmd, input=text.encode("utf-8"), check=True, timeout=120,
+        speaker = os.environ.get("EASYVIDEO_PIPER_SPEAKER", "")
+        if speaker.isdigit():
+            cmd.extend(["--speaker", speaker])
+        subprocess.run(cmd, input=text.encode("utf-8"), check=True, timeout=180,
                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     elif engine == "sapi":
         out = str(output).replace("'", "''")
