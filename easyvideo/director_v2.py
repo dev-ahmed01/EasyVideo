@@ -53,7 +53,7 @@ def _font(size: int, bold=True):
             return ImageFont.truetype(candidate,size)
     return ImageFont.load_default()
 
-def _graphic(output:Path, title:str, style:str, width:int, height:int):
+def _graphic(output:Path, title:str, style:str, width:int, height:int, brand_name:str=""):
     canvas=Image.new("RGBA",(width,height),(0,0,0,0))
     if not title:
         canvas.save(output);return
@@ -80,10 +80,11 @@ def _graphic(output:Path, title:str, style:str, width:int, height:int):
         draw.rectangle((x-pad,y-pad,x-pad+max(4,int(width*.009)),y+len(lines)*leading+pad),fill=accent)
     for i,t in enumerate(lines):
         draw.text((x,y+i*leading),t,font=text_font,fill=accent)
-    tag_height=int(height*.043);tag_y=int(height*.049)
-    draw.rounded_rectangle((x-pad,tag_y-5,x+int(width*.54),tag_y+tag_height),
-                           radius=7,fill=(8,25,20,198))
-    draw.text((x,tag_y+1),"FURNIHUB / OFFICE SEATING",font=small_font,fill="#EBF8E9")
+    if brand_name:
+        tag_height=int(height*.043);tag_y=int(height*.049)
+        draw.rounded_rectangle((x-pad,tag_y-5,x+int(width*.62),tag_y+tag_height),
+                               radius=7,fill=(8,25,20,198))
+        draw.text((x,tag_y+1),brand_name[:26].upper(),font=small_font,fill="#EBF8E9")
     canvas.save(output)
 
 def _content_area(src:Path, timestamp:float) -> tuple[int,int,int,int]:
@@ -194,7 +195,7 @@ def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
         frac=((index*0.17+count*.28+(0.12 if style=="cinematic" else 0))%0.86)
         start=round(room*frac,2)
         title=plan["beats"][title_positions[index]] if index in title_positions else ""
-        png=work/f"graphic_{index:02d}.png";_graphic(png,title,style,width,height)
+        png=work/f"graphic_{index:02d}.png";_graphic(png,title,style,width,height,getattr(brief,"brand_name",""))
         scene=work/f"scene_{index:02d}.mp4"
         _cut(src,scene,png,start,duration,width,height);pieces.append(scene)
         if progress:progress(f"{plan['title']}: cut {index+1}/{len(durations)}")

@@ -11,7 +11,7 @@ def test_intent_first_project_and_missing_shot(tmp_path):
         assert health.status_code == 200
         res = client.post("/api/plan",json=BRIEF)
         assert res.status_code == 200
-        assert len(res.json()["creatives"]) == 5
+        assert len(res.json()["creatives"]) == 6
         assert {x["role"] for x in res.json()["shotlist"] if x["required"]} == {"hero","detail"}
         r = client.post("/api/projects",json=BRIEF)
         assert r.status_code == 201
