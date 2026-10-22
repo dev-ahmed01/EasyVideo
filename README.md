@@ -118,3 +118,9 @@ Six styles now use 7–9 short clips, detected letterbox removal with blurred re
 ### Voice and music licensing
 
 Before using a downloaded Piper voice commercially, read the model card for that exact voice and its training dataset license. Some otherwise high-quality models restrict commercial use. This repository does not bundle voice-model weights, third-party music or fonts. The separately generated six-Reel demo used a basic synthetic fallback where neural weights were unavailable; it is not a claim that the computer had Piper installed.
+
+## One-time Windows neural voice setup (optional)
+
+Double-click setup-ai-voice-windows.bat before starting the studio. It installs Piper in the local Python virtual environment and downloads one LibriTTS high-quality English voice and configuration to the ignored voices directory (about 137 MB). Then restart start-windows.bat; the launcher configures the model and female speaker 676 automatically. On an 8 GB CPU-only laptop, synthesis is local, with no API usage after installation.
+
+Voice dataset: LibriTTS (OpenSLR 60), CC BY 4.0. Attribution should accompany commercial use; see the official model card at https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/libritts/high/MODEL_CARD. The neural model is an optional download, not bundled in the repository or earlier demo videos.
