@@ -17,6 +17,9 @@ async function api(path,method="GET",body){
 const head=(number,label,title,description)=>'<div class="hero-line">'+number+' / '+label+'</div><h1 class="title">'+title+'</h1>'+(description?'<p class="description">'+description+'</p>':"");
 function stageTo(n){
  if(n>1&&!project){toast("Create a campaign first");return;}
+ if(n===3&&(!project.audit.ready||(project.brief.source_mode==="remix"&&!project.reference))){
+  toast("Finish the required footage and original Reel first");return;
+ }
  stage=n;$$(".nav-item").forEach(e=>e.classList.toggle("active",Number(e.dataset.stage)===stage));
  $("#breadcrumb").textContent=["","DIRECTION","FOOTAGE","REEL LAB"][n];
  render();
@@ -223,7 +226,7 @@ $("#new-project").onclick=newProject;
    project=await api("/api/projects/"+history[0].id);
    mode=project.brief.source_mode||"new";
    audioMode=mode==="remix"&&project.reference?.has_audio?"reference":"generated";
-   if(project.reference)audioLength=Math.min(18,Math.floor(project.reference.audio_seconds));
+   if(project.reference)audioLength=Math.max(8,Math.min(18,Math.floor(project.reference.audio_seconds)));
    chosen=new Set(project.selected||[]);
    stageTo(2);return;
   }

@@ -98,3 +98,11 @@ Style-specific animated text, percussive punctuation, and restrained accent mark
 ## Using a ChatGPT draft script
 
 Paste your script in the brief. The script is included across all five narrated treatments, while the openings, editing rhythm and shot sequence are independently chosen. Long scripts are shortened to suit the initial short-form templates; always review the exact narration text in each creative card before export.
+
+## Remix a previously published Reel
+
+Start from **Remix a Reel**, enter intent, upload the original video on the Footage screen, and assign visual clips to the required roles. Original audio is previewable in the browser. Choose either **Original Reel audio** (start + duration, 8–90 seconds within that track) or **New voiceover** (offline TTS), then export the edited visuals in any of five formats. Original audio is a mixed track — voice, music and sound effects are not separated. Ensure reuse rights for any music. The source video remains on the local computer.
+
+## Design update
+
+Minimal three-screen workflow: Direction, Footage, Reel Lab. Two type families: Bricolage Grotesque for display, Poppins for body; externally loaded fonts are optional, with offline system fallbacks. The app never uploads video to an external server.
