@@ -41,3 +41,15 @@ Compare average watch time, shares/reach and genuine chair-count enquiries per 1
 ## Limitation
 
 The provider pages and commercial-use licensing were verified, but actual stock-video binary downloads were blocked in the current environment. The new benchmark implementation is ready, but a true stock-vs-no-stock export cannot be asserted until licensed video files are available in EasyVideo.
+
+## Local controlled stock comparison
+
+After adding *two* clips as Illustrative licensed stock / Office atmosphere, plus the genuine mandatory real footage:
+
+1. Upload one natural human voice recording (or a vetted local neural TTS track) using Reel Lab > My narration.
+2. Click Compare: real vs stock. The app renders two previews sequentially on CPU.
+3. Control removes illustrative stock from the clips; treatment includes stock context shots.
+4. Both versions reuse the exact same voice WAV and authentic chair/inventory clips; neither version claims stock scenes are completed installations.
+5. Download previews for a visual review, then post only approved videos. Compare qualified chair-count enquiries and real watch-time data. No reach claims are made.
+
+This is available in a local EasyVideo build on the feature branch. It does not fetch stock footage over the internet and does not publish to Instagram.
