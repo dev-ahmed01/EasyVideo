@@ -32,6 +32,7 @@ class Brief:
     script: str = ""
     source_mode: str = "new"
     brand_name: str = ""
+    location: str = ""
 
 def clean(value: str, limit: int = 240) -> str:
     value = re.sub(r"\s+", " ", (value or "")).strip()

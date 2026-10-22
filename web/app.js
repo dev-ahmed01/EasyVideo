@@ -6,7 +6,7 @@ const $$=s=>Array.from(document.querySelectorAll(s));
 const escape=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const roles={hero:"Full chair",detail:"Close-up",function:"Feature demo",workspace:"Desk / workspace",inventory:"Multiple chairs",proof:"Showroom / proof"};
 const styleIds=["stomp","cinematic","features","business","social","voice_story"];
-let project=null,stage=1,mode="new",audioMode="generated",audioStart=0,audioLength=18,chosen=new Set(),health=null,timer=null;
+let project=null,stage=1,mode="new",audioMode="generated",audioStart=0,audioLength=18,chosen=new Set(),health=null,timer=null,voiceProvider="auto";
 function toast(message){const box=$("#toast");box.textContent=message;box.classList.add("show");setTimeout(()=>box.classList.remove("show"),4500);}
 async function api(path,method="GET",body){
  const upload=body instanceof FormData;
@@ -30,7 +30,7 @@ function newProject(){
 }
 function briefValues(){
  return {source_mode:mode,intent:$("#intent").value.trim(),audience:$("#audience").value.trim(),
- product:$("#product").value.trim(),brand_name:$("#brand-name").value.trim(),offer:$("#offer").value.trim(),facts:$("#facts").value.trim(),
+ product:$("#product").value.trim(),brand_name:$("#brand-name").value.trim(),location:$("#location").value.trim(),offer:$("#offer").value.trim(),facts:$("#facts").value.trim(),
  call_to_action:$("#cta").value.trim(),script:$("#script").value.trim()};
 }
 function showDirection(){
@@ -45,6 +45,7 @@ function showDirection(){
  '<div><label class="field-title" for="product">Product</label><input id="product" class="input" value="Ergonomic office chair"></div></div>'+
  '<details class="detail-expand"><summary>Script & campaign details +</summary>'+
  '<label class="field-title" for="brand-name">Brand name</label><input id="brand-name" class="input" value="Furnihub Interiors">'+
+ '<label class="field-title" for="location">Served city / area (optional)</label><input id="location" class="input" placeholder="Bengaluru, only if you serve it">'+
  '<label class="field-title" for="script">ChatGPT script (optional)</label><textarea id="script" class="input" placeholder="Paste a voiceover script"></textarea>'+
  '<label class="field-title" for="offer">Stock / offer</label><input id="offer" class="input" placeholder="Available today · bulk orders welcome">'+
  '<label class="field-title" for="facts">Verified features</label><input id="facts" class="input" placeholder="Mesh back · adjustable arms, if true">'+
@@ -135,7 +136,11 @@ function reelCard(item,index){
  '<label class="pick"><input class="reel-pick" type="checkbox" data-style="'+item.id+'" '+(chosen.has(item.id)?"checked":"")+'> Choose this Reel</label>'+
  (missing.length?'<div class="reel-warning">Uses substitute footage for '+missing.map(r=>escape(roles[r]||r)).join(", ")+'</div>':"")+
  '<details><summary>View creative & narration</summary><blockquote>'+escape(item.voiceover)+'</blockquote><small>'+escape(item.marketing_goal)+'</small></details>'+
- '<button class="caption-action" type="button" data-caption="'+item.id+'">Copy caption ↗</button>'+
+ '<details class="search-assets"><summary>Instagram SEO & posting</summary><p>Searchable title, caption, alt text, and pinned comment</p>'+
+ '<div class="seo-actions"><button class="caption-action" type="button" data-copy="caption" data-style="'+item.id+'">Caption</button>'+
+ '<button class="caption-action" type="button" data-copy="cover_title" data-style="'+item.id+'">Cover title</button>'+
+ '<button class="caption-action" type="button" data-copy="alt_text" data-style="'+item.id+'">Alt text</button>'+
+ '<button class="caption-action" type="button" data-copy="pinned_comment" data-style="'+item.id+'">Pinned comment</button></div></details>'+
  (exportUrl?'<a class="download" download href="'+escape(exportUrl)+'">↓ Download '+(project.exports[item.id].final?"1080p":"draft")+'</a>':"")+
  '</div></article>';
 }
@@ -166,7 +171,9 @@ function showStudio(){
  '<button type="button" data-audio="reference" class="'+(audioMode==="reference"?"active":"")+'" '+(!allowReference?"disabled":"")+'>Original Reel audio</button>'+
  '<button type="button" data-audio="uploaded" class="'+(audioMode==="uploaded"?"active":"")+'">My narration</button></div></div>'+
  '<div><span class="stat-pill">'+(audioMode==="reference"?"Existing audio":"Offline voice")+'</span></div></div>'+
- (audioMode==="generated"?'<p class="help">Piper neural voice is used if configured. Windows speech is a basic fallback.</p>':'')+
+ (audioMode==="generated"?'<div class="voice-provider"><label class="field-title" for="voice-provider">Voice engine</label><select id="voice-provider" class="input">'+
+ [{id:"auto",label:"Auto • best available"},...(health?.voices||[]).map(id=>({id,label:id==="voicestudio"?"VoiceStudio • local AI":id==="piper"?"Piper • offline neural":id==="sapi"?"Windows voice • basic":id}))].map(x=>'<option value="'+x.id+'" '+(voiceProvider===x.id?"selected":"")+'>'+escape(x.label)+'</option>').join("")+
+ '</select><p class="help">VoiceStudio runs separately on this PC. Choose a lightweight model for 8 GB RAM.</p></div>':'')+
  (audioMode==="uploaded"?'<div class="upload-area" style="margin-top:15px"><strong>Upload your voiceover</strong><p>Recording or licensed generated speech</p><label class="secondary" for="narration-upload">Choose audio ↑</label><input class="file-hidden" id="narration-upload" type="file" accept="audio/*,.m4a,.wav,.mp3"></div>'+
  (project.narration?'<audio class="reference-audio" controls src="'+escape(project.narration.audio_url)+'"></audio><p class="help">'+escape(project.narration.filename)+' · '+project.narration.duration.toFixed(1)+'s</p>':''):'' )+
  (audioMode==="reference"?'<div class="ranges"><label>Start <input class="input" id="audio-start" type="number" min="0" max="'+Math.max(0,ref.audio_seconds-8).toFixed(1)+'" step="0.5" value="'+audioStart+'"></label>'+
@@ -180,6 +187,8 @@ function showStudio(){
  '<p class="footnote">Preview at 540p · Final export at 1080p. Three choices maximum.</p>'+
  metricsUI();
  $$("[data-audio]").forEach(b=>b.onclick=()=>{if(b.disabled)return;audioMode=b.dataset.audio;render();});
+ const voiceSelect=$("#voice-provider");
+ if(voiceSelect)voiceSelect.onchange=()=>voiceProvider=voiceSelect.value;
  const uploadNarration=$("#narration-upload");
  if(uploadNarration)uploadNarration.onchange=async()=>{
     if(!uploadNarration.files.length)return;
@@ -197,9 +206,10 @@ function showStudio(){
   try{project=await api("/api/projects/"+project.id+"/selection","POST",{styles:[...chosen]});render();}
   catch(e){toast(e.message);}
  });
- $$("[data-caption]").forEach(b=>b.onclick=async()=>{
-  const item=project.creatives.find(x=>x.id===b.dataset.caption);
-  try{await navigator.clipboard.writeText(item.caption);toast("Caption copied. Review accuracy before posting.");}
+ $$("[data-copy]").forEach(b=>b.onclick=async()=>{
+  const asset=project.social_pack?.[b.dataset.style];
+  if(!asset)return;
+  try{await navigator.clipboard.writeText(asset[b.dataset.copy]||"");toast("Copied. Verify all details before publishing.");}
   catch{toast("Clipboard unavailable");}
  });
  $("#generate-five").onclick=()=>beginRender(styleIds,"preview");
@@ -220,7 +230,7 @@ async function beginRender(styles,resolution){
  }
  try{
   await api("/api/projects/"+project.id+"/renders","POST",{styles,resolution,
-   audio_source:audioMode,reference_start:audioStart,reference_seconds:audioLength,voice_engine:"auto"});
+   audio_source:audioMode,reference_start:audioStart,reference_seconds:audioLength,voice_engine:voiceProvider});
   project=await api("/api/projects/"+project.id);
   toast("Started the local render queue");
   render();

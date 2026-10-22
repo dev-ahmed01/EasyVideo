@@ -5,6 +5,7 @@ import base64
 import importlib.util
 import os
 from pathlib import Path
+from . import voicestudio_bridge
 import platform
 import shutil
 import subprocess
@@ -40,6 +41,8 @@ def engines() -> list[str]:
         found.append("espeak-ng")
     elif shutil.which("espeak"):
         found.append("espeak")
+    if voicestudio_bridge.available():
+        found.append("voicestudio")
     return found
 
 
@@ -57,6 +60,8 @@ def synthesize(text: str, output: Path, preferred: str = "auto") -> str:
     text = text.strip()[:1200]
     if not text:
         raise VoiceUnavailable("Voiceover script is empty.")
+    if engine == "voicestudio":
+        return voicestudio_bridge.synthesize(text, output)
     if engine == "piper":
         model = _piper_model()
         if not model:

@@ -12,3 +12,5 @@
 
 .voice-switch{flex-wrap:wrap}
 .reel-screen.voice_story{background:linear-gradient(150deg,#143a2f,#a5c295)}
+
+.voice-provider{margin-top:14px;max-width:360px}.voice-provider .field-title{margin-top:9px}.search-assets{margin-top:10px;border-top:1px solid var(--line);padding-top:9px}.search-assets summary{font-size:10px;font-weight:700;color:#42694b;cursor:pointer}.search-assets p{font-size:10px;margin:7px 0}.seo-actions{display:flex;gap:3px 12px;flex-wrap:wrap}.seo-actions .caption-action{font-size:10px}
