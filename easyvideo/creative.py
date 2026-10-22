@@ -131,7 +131,7 @@ def creatives(brief: Brief) -> list[dict]:
 
 def audit(brief: Brief, clips: list[dict]) -> dict:
     shotlist = required_shots(brief)
-    real_only = {"hero", "detail", "function", "inventory", "proof"}
+    real_only = {"hero", "detail", "function", "inventory", "proof", "workspace"}
     available = {
         clip["role"] for clip in clips if clip.get("duration", 0) >= 1
         and (clip["role"] not in real_only or clip.get("source_type", "real") == "real")
@@ -147,7 +147,7 @@ def audit(brief: Brief, clips: list[dict]) -> dict:
             warnings.append(f"{clip['filename']}: low resolution may reduce sharpness.")
         if w > h:
             warnings.append(f"{clip['filename']}: landscape footage will be center-cropped to vertical. Keep chair centered.")
-    stock_count = sum(c.get("source_type") == "stock" and c.get("role") in {"office_context", "workspace"} for c in clips)
+    stock_count = sum(c.get("source_type") == "stock" and c.get("role") == "office_context" for c in clips)
     business = any(term in clean(brief.intent + " " + brief.audience, 1700).lower()
                    for term in ("bulk", "b2b", "startup", "furnish", "corporate", "office setup"))
     if business and stock_count < 2:

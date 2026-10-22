@@ -190,7 +190,7 @@ def _scene_changes(path_text: str) -> tuple[float, ...]:
         return ()
 
 def _choose(role, clips, used, index, style):
-    real_only={"hero","detail","function","inventory","proof"}
+    real_only={"hero","detail","function","inventory","proof","workspace"}
     options=[x for x in clips if x["role"]==role and x.get("duration",0)>=1
              and (role not in real_only or x.get("source_type","real")=="real")]
     if not options and role=="office_context":

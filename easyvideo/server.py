@@ -53,7 +53,7 @@ class SelectionInput(BaseModel):
 class ClipRoleInput(BaseModel):
     role: str
 
-STOCK_ALLOWED_ROLES = {"office_context", "workspace"}
+STOCK_ALLOWED_ROLES = {"office_context"}
 
 class ReferenceSegmentInput(BaseModel):
     role: str
