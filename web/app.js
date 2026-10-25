@@ -6,7 +6,7 @@ const $$=s=>Array.from(document.querySelectorAll(s));
 const escape=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const roles={hero:"Full chair",detail:"Close-up",function:"Feature demo",workspace:"Desk / workspace",office_context:"Office atmosphere (stock)",inventory:"Multiple chairs",proof:"Showroom / proof"};
 const styleIds=["stomp","cinematic","features","business","social","voice_story"];
-let project=null,stage=1,mode="new",audioMode="generated",audioStart=0,audioLength=18,chosen=new Set(),health=null,timer=null,voiceProvider="auto";
+let project=null,stage=1,mode="new",audioMode="music",audioStart=0,audioLength=18,chosen=new Set(),health=null,timer=null,voiceProvider="auto";
 function toast(message){const box=$("#toast");box.textContent=message;box.classList.add("show");setTimeout(()=>box.classList.remove("show"),4500);}
 async function api(path,method="GET",body){
  const upload=body instanceof FormData;
@@ -25,7 +25,7 @@ function stageTo(n){
  render();
 }
 function newProject(){
- stopPoll();project=null;stage=1;mode="new";audioMode="generated";audioStart=0;audioLength=18;chosen.clear();
+ stopPoll();project=null;stage=1;mode="new";audioMode="music";audioStart=0;audioLength=18;chosen.clear();
  $("#project-state").textContent="UNTITLED CAMPAIGN";stageTo(1);
 }
 function briefValues(){
@@ -58,7 +58,7 @@ function showDirection(){
  $("#create-project").onclick=async()=>{
   const payload=briefValues();if(payload.intent.length<10){toast("Describe your goal in at least ten characters.");return;}
   $("#create-project").disabled=true;
-  try{project=await api("/api/projects","POST",payload);chosen.clear();audioMode=mode==="remix"?"reference":"generated";stageTo(2);}
+  try{project=await api("/api/projects","POST",payload);chosen.clear();audioMode=mode==="remix"?"reference":"music";stageTo(2);}
   catch(e){toast(e.message);$("#create-project").disabled=false;}
  };
 }
@@ -198,10 +198,11 @@ function showStudio(){
  const list=[...chosen],canFinal=list.length>0&&list.every(id=>project.exports[id].preview);
  $("#view").innerHTML=head("03","Reel lab","The edit makes the difference.","Six distinct edits. Choose the three worth publishing.")+
  '<div class="panel"><div class="picker-row"><div><h2 class="panel-title">Soundtrack</h2><div class="voice-switch">'+
- '<button type="button" data-audio="generated" class="'+(audioMode==="generated"?"active":"")+'">AI / offline voiceover</button>'+
+ '<button type="button" data-audio="music" class="'+(audioMode==="music"?"active":"")+'">Music + captions</button>'+
+ '<button type="button" data-audio="generated" class="'+(audioMode==="generated"?"active":"")+'">AI voiceover</button>'+
  '<button type="button" data-audio="reference" class="'+(audioMode==="reference"?"active":"")+'" '+(!allowReference?"disabled":"")+'>Original Reel audio</button>'+
  '<button type="button" data-audio="uploaded" class="'+(audioMode==="uploaded"?"active":"")+'">My narration</button></div></div>'+
- '<div><span class="stat-pill">'+(audioMode==="reference"?"Existing audio":"Offline voice")+'</span></div></div>'+
+ '<div><span class="stat-pill">'+(audioMode==="music"?"Caption-first • no voiceover":audioMode==="reference"?"Existing audio":"Offline voice")+'</span></div></div>'+
  (audioMode==="generated"?'<div class="voice-provider"><label class="field-title" for="voice-provider">Voice engine</label><select id="voice-provider" class="input">'+
  [{id:"auto",label:"Auto • best available"},...(health?.voices||[]).map(id=>({id,label:id==="voicestudio"?"VoiceStudio • local AI":id==="piper"?"Piper • offline neural":id==="sapi"?"Windows voice • basic":id}))].map(x=>'<option value="'+x.id+'" '+(voiceProvider===x.id?"selected":"")+'>'+escape(x.label)+'</option>').join("")+
  '</select><p class="help">VoiceStudio runs separately on this PC. Choose a lightweight model for 8 GB RAM.</p></div>':'')+
@@ -300,7 +301,7 @@ $("#new-project").onclick=newProject;
   if(history.length){
    project=await api("/api/projects/"+history[0].id);
    mode=project.brief.source_mode||"new";
-   audioMode=mode==="remix"&&project.reference?.has_audio?"reference":"generated";
+   audioMode=mode==="remix"&&project.reference?.has_audio?"reference":"music";
    if(project.reference)audioLength=Math.max(8,Math.min(18,Math.floor(project.reference.audio_seconds)));
    chosen=new Set(project.selected||[]);
    stageTo(2);return;

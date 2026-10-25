@@ -140,3 +140,7 @@ For each generated style EasyVideo prepares a searchable headline, natural-langu
 ### Licensed stock vs real footage
 
 For office-sales Reels, label commercially licensed B-roll as Illustrative stock and assign only the Office atmosphere role. Genuine company/product footage must supply Hero, Detail, Workspace, Inventory, Function and Customer proof roles. Stock office settings are never presented as Furnihub's own completed projects or available products. When two independent stock clips have been added along with real required shots, EasyVideo reports the stock benchmark ready. Both video variants still require human review and truthful copy.
+
+## Silent-first sales Reels + office-chair SEO (October 2026)
+
+The Reel Lab now defaults to **Music + captions**. This uses only original, locally synthesized music with no voice model needed. Existing AI voiceover, original Reel audio, and uploaded narration modes remain available. Marketing copy for office/procurement audiences now leads with office-chair search terms, actual footage, and a qualified call to action: **DM OFFICE + chair count**. Each Reel provides a cover title, natural-language description, accessibility alt text, and suggested pinned comment. Location keywords appear only when the service region is entered and verified. Voice is optional; writing accurate sales copy is not.

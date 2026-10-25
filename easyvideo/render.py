@@ -118,12 +118,13 @@ def render_variant(brief: Brief, clips: list[dict], style: str, project_dir: Pat
                    reference_video: Path | None = None,
                    reference_start: float = 0,
                    reference_seconds: float = 18,
-                   voiceover_file: Path | None = None) -> Path:
+                   voiceover_file: Path | None = None,
+                   music_only: bool = False) -> Path:
     from .director_v2 import render_directed
     return render_directed(brief, clips, style, project_dir, resolution,
                            voice_engine, progress, reference_video,
                            reference_start, reference_seconds, voiceover_file,
-                           synthesize_fn=synthesize)
+                           synthesize_fn=synthesize, music_only=music_only)
     if style not in STYLES:
         raise ValueError(f"Unknown style: {style}")
     if resolution not in ("preview", "final"):
