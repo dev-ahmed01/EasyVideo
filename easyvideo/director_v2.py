@@ -152,6 +152,27 @@ def _cut(src:Path,dst:Path,png:Path,start:float,duration:float,width:int,height:
          "-pix_fmt","yuv420p",str(dst)],240)
 
 
+def _music_bed(path:Path, durations:list[float],style:str):
+    """Generate a small royalty-free tonal bed from maths, not downloaded music."""
+    rate=16000
+    n=max(1,math.ceil(sum(durations)*rate))
+    samples=array.array("h")
+    bass_notes=(110.0,123.47,130.81,98.0)
+    for i in range(n):
+        t=i/rate
+        bass=bass_notes[int(t//3.5)%len(bass_notes)]
+        pulse=t%0.5
+        pad=(math.sin(2*math.pi*bass*t)*0.12 +
+             math.sin(2*math.pi*bass*1.5*t)*0.048 +
+             math.sin(2*math.pi*bass*2*t)*0.028)
+        pluck=0.024*math.sin(2*math.pi*660*t)*math.exp(-17*pulse)
+        fade=min(1,t/.25,max(0,(n/rate-t)/.8))
+        samples.append(max(-32768,min(32767,int((pad+pluck)*fade*32767))))
+    with wave.open(str(path),"wb") as wf:
+        wf.setnchannels(1);wf.setsampwidth(2);wf.setframerate(rate)
+        wf.writeframes(samples.tobytes())
+
+
 def _percussion(output:Path, durations:list[float], style:str):
     rate=16000;total=sum(durations);n=max(1,math.ceil(total*rate))
     samples=array.array("h",[0])*n;randomizer=random.Random(42)
@@ -204,7 +225,7 @@ def _choose(role, clips, used, index, style):
 def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
                     voice_engine="auto",progress=None,reference_video:Path|None=None,
                     reference_start=0,reference_seconds=18,voiceover_file:Path|None=None,
-                    synthesize_fn=None):
+                    synthesize_fn=None,music_only:bool=False):
     if style not in STYLE_SHOTS:raise ValueError("Unknown creative style")
     if not clips:raise ValueError("Upload video clips before rendering")
     if resolution not in ("preview","final"):raise ValueError("Invalid resolution")
@@ -218,7 +239,9 @@ def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
         pass
     voice=work/"narration.wav"
     engine=None
-    if voiceover_file is not None:
+    if music_only:
+        engine="music and captions only"
+    elif voiceover_file is not None:
         voice=voiceover_file
         engine="uploaded narration"
     elif reference_video is not None:
@@ -231,12 +254,12 @@ def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
         if synthesize_fn is None:raise RuntimeError("Offline voice engine not configured")
         if progress:progress("Generating an offline voiceover")
         engine=synthesize_fn(plan["voiceover"],voice,preferred=voice_engine)
-    voice_duration=seconds(voice)
+    voice_duration=0.0 if music_only else seconds(voice)
     durations=list(durations)
     total=sum(durations)
     # A spoken story determines timing; cuts flex to allow full narration.
     # Align the cut sequence with speech instead of leaving a long silent tail.
-    target=max(11.2,voice_duration+1.1)
+    target=total if music_only else max(11.2,voice_duration+1.1)
     if target>total:
         factor=target/total
         durations=[round(d*factor,3) for d in durations]
@@ -270,14 +293,27 @@ def render_directed(brief,clips,style:str,project_dir:Path,resolution="preview",
     accents=work/"accents.wav";_percussion(accents,durations,style)
     outdir=project_dir/"exports";outdir.mkdir(parents=True,exist_ok=True)
     output=outdir/f"{style}_{resolution}.mp4"
-    filt=("[1:a]volume=1.14,highpass=f=75,acompressor=threshold=-22dB:"
-          "ratio=2:attack=8:release=110[vo];[2:a]volume=0.38[fx];"
-          "[vo][fx]amix=inputs=2:duration=longest:dropout_transition=0[mix];"
-          "[mix]loudnorm=I=-16:TP=-1.5:LRA=11[a]")
-    run(["ffmpeg","-y","-v","error","-i",str(combined),"-i",str(voice),"-i",str(accents),
-         "-filter_complex",filt,"-map","0:v:0","-map","[a]","-c:v","copy",
-         "-c:a","aac","-b:a","128k","-t",str(sum(durations)),
-         "-movflags","+faststart",str(output)],120)
+    if music_only:
+        # Music bed and editorial accents are synthesized locally and
+        # can be used without Piper, VoiceStudio, SAPI or an API account.
+        bed=work/"original_music.wav";_music_bed(bed,durations,style)
+        filt=("[1:a]volume=1.0[bed];[2:a]volume=0.30[fx];"
+              "[bed][fx]amix=inputs=2:duration=longest:dropout_transition=0[mix];"
+              "[mix]loudnorm=I=-19:TP=-2:LRA=8[a]")
+        run(["ffmpeg","-y","-v","error","-i",str(combined),"-i",str(bed),
+             "-i",str(accents),"-filter_complex",filt,"-map","0:v:0","-map","[a]",
+             "-c:v","copy","-c:a","aac","-b:a","128k",
+             "-t",str(sum(durations)),"-movflags","+faststart",str(output)],120)
+        bed.unlink(missing_ok=True)
+    else:
+        filt=("[1:a]volume=1.14,highpass=f=75,acompressor=threshold=-22dB:"
+              "ratio=2:attack=8:release=110[vo];[2:a]volume=0.38[fx];"
+              "[vo][fx]amix=inputs=2:duration=longest:dropout_transition=0[mix];"
+              "[mix]loudnorm=I=-16:TP=-1.5:LRA=11[a]")
+        run(["ffmpeg","-y","-v","error","-i",str(combined),"-i",str(voice),"-i",str(accents),
+             "-filter_complex",filt,"-map","0:v:0","-map","[a]","-c:v","copy",
+             "-c:a","aac","-b:a","128k","-t",str(sum(durations)),
+             "-movflags","+faststart",str(output)],120)
     if progress:progress(f"{plan['title']} finished with {engine}")
     # Retain deliverables; discard intermediate media to reduce disk use.
     for old in work.glob("scene_*.mp4"):

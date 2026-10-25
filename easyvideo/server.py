@@ -43,7 +43,7 @@ class RenderInput(BaseModel):
     styles: list[str] = Field(min_length=1, max_length=6)
     resolution: str = "preview"
     voice_engine: str = "auto"
-    audio_source: Literal["generated", "reference", "uploaded"] = "generated"
+    audio_source: Literal["generated", "reference", "uploaded", "music"] = "music"
     reference_start: float = Field(default=0, ge=0, le=600)
     reference_seconds: float = Field(default=18, ge=8, le=90)
 
@@ -529,7 +529,8 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
                 render_variant(brief, data["clips"], style, root / pid, resolution,
                                voice_engine, progress=show, reference_video=reference_path,
                                reference_start=reference_start,
-                               reference_seconds=reference_seconds, voiceover_file=narration_file)
+                               reference_seconds=reference_seconds, voiceover_file=narration_file,
+                               music_only=(audio_source == "music"))
             update_status(pid, "ready", f"{len(styles)} {resolution} Reel(s) ready")
         except Exception as exc:
             update_status(pid, "error", str(exc)[:1000])
@@ -551,6 +552,8 @@ def create_app(data_dir: str | Path | None = None) -> FastAPI:
                 raise HTTPException(409, "Upload an existing Reel that contains audio first")
             if payload.reference_start + payload.reference_seconds > data["reference"]["audio_seconds"] + 0.1:
                 raise HTTPException(422, "Selected original audio range exceeds available audio")
+        elif payload.audio_source == "music":
+            pass  # A silent-first captions Reel never requires a TTS model.
         elif payload.audio_source == "uploaded":
             if not data["narration"] or not (root / pid / "narration" / "voice.wav").is_file():
                 raise HTTPException(409, "Upload narration first")
