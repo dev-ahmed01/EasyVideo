@@ -94,7 +94,7 @@ def social_assets(brief, style: str) -> dict:
         "checklist": [
             "Ensure every product and inventory shot shows a genuine item, not illustrative stock.",
             "Check first 2 seconds and title safe zones on an actual phone.",
-            "Include only verified product claims and service areas; no fabricated discounts.",
+            "Include only verified product details, commercial claims and service areas.",
             "Use a few relevant hashtags; avoid keyword stuffing.",
             "Track qualified DMs, saves, shares and watch time, not views alone."
         ]
